@@ -8,18 +8,19 @@ export default async function TransactionsPage() {
   const user = await requireUser();
   if (!user) redirect("/login");
 
-  const categories = await prisma.category.findMany({
-    where: { userId: user.id },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true },
-  });
-
-  const items = await prisma.transaction.findMany({
-    where: { userId: user.id },
-    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-    take: 100,
-    include: { category: { select: { name: true } } },
-  });
+  const [categories, items] = await Promise.all([
+    prisma.category.findMany({
+      where: { userId: user.id },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+    prisma.transaction.findMany({
+      where: { userId: user.id },
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      take: 100,
+      include: { category: { select: { name: true } } },
+    }),
+  ]);
 
   return (
     <div className="space-y-6">

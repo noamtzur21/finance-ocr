@@ -13,23 +13,23 @@ export default async function DashboardPage() {
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-  const budget = await prisma.budget.findUnique({
-    where: { userId_month: { userId: user.id, month } },
-    select: { expenseLimit: true },
-  });
-
-  const recentTx = await prisma.transaction.findMany({
-    where: { userId: user.id },
-    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-    take: 10,
-    include: { category: { select: { name: true } } },
-  });
-
-  const sums = await prisma.document.groupBy({
-    by: ["type"],
-    where: { userId: user.id, date: { gte: start, lt: end } },
-    _sum: { amount: true },
-  });
+  const [budget, recentTx, sums] = await Promise.all([
+    prisma.budget.findUnique({
+      where: { userId_month: { userId: user.id, month } },
+      select: { expenseLimit: true },
+    }),
+    prisma.transaction.findMany({
+      where: { userId: user.id },
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      take: 10,
+      include: { category: { select: { name: true } } },
+    }),
+    prisma.document.groupBy({
+      by: ["type"],
+      where: { userId: user.id, date: { gte: start, lt: end } },
+      _sum: { amount: true },
+    }),
+  ]);
 
   const income = sums.find((s) => s.type === "income")?._sum.amount?.toString() ?? "0";
   const expense = sums.find((s) => s.type === "expense")?._sum.amount?.toString() ?? "0";

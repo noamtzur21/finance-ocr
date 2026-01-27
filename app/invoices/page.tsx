@@ -11,19 +11,31 @@ export default async function InvoicesPage(props: { searchParams?: Promise<{ all
   const sp = (await props.searchParams) ?? {};
   const showAll = sp.all === "1";
 
-  const docs = await prisma.document.findMany({
-    where: showAll ? { userId: user.id, type: "income" } : { userId: user.id, type: "income" },
-    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-    take: 200,
-    select: { id: true, date: true, vendor: true, amount: true, currency: true, description: true, docNumber: true, ocrStatus: true },
-  });
+  const where = showAll ? { userId: user.id, type: "income" as const } : { userId: user.id, type: "income" as const };
 
-  const sum = (
-    await prisma.document.aggregate({
+  const [docs, agg] = await Promise.all([
+    prisma.document.findMany({
+      where,
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      take: 200,
+      select: {
+        id: true,
+        date: true,
+        vendor: true,
+        amount: true,
+        currency: true,
+        description: true,
+        docNumber: true,
+        ocrStatus: true,
+      },
+    }),
+    prisma.document.aggregate({
       where: { userId: user.id, type: "income" },
       _sum: { amount: true },
-    })
-  )._sum.amount?.toString() ?? "0";
+    }),
+  ]);
+
+  const sum = agg._sum.amount?.toString() ?? "0";
 
   return (
     <div className="space-y-6">
