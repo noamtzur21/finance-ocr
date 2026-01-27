@@ -17,6 +17,11 @@ export async function GET(req: Request) {
   const user = await requireUser();
   if (!user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
 
+  // IMPORTANT: Keep DB usage light. This endpoint is long-lived and runs in a loop.
+  // Default to a "core" watch (documents + transactions). Other entities can be enabled via ?full=1.
+  const url = new URL(req.url);
+  const full = url.searchParams.get("full") === "1";
+
   const stream = new TransformStream();
   const writer = stream.writable.getWriter();
   const encoder = new TextEncoder();
@@ -39,27 +44,6 @@ export async function GET(req: Request) {
       });
       if (doc) candidates.push({ entity: "document", id: doc.id, at: doc.updatedAt, extra: { ocrStatus: doc.ocrStatus } });
 
-      const cat = await prisma.category.findFirst({
-        where: { userId: user.id, updatedAt: { gt: last } },
-        orderBy: { updatedAt: "asc" },
-        select: { id: true, updatedAt: true },
-      });
-      if (cat) candidates.push({ entity: "category", id: cat.id, at: cat.updatedAt });
-
-      const bud = await prisma.budget.findFirst({
-        where: { userId: user.id, updatedAt: { gt: last } },
-        orderBy: { updatedAt: "asc" },
-        select: { id: true, updatedAt: true },
-      });
-      if (bud) candidates.push({ entity: "budget", id: bud.id, at: bud.updatedAt });
-
-      const cred = await prisma.credential.findFirst({
-        where: { userId: user.id, updatedAt: { gt: last } },
-        orderBy: { updatedAt: "asc" },
-        select: { id: true, updatedAt: true },
-      });
-      if (cred) candidates.push({ entity: "credential", id: cred.id, at: cred.updatedAt });
-
       const tx = await prisma.transaction.findFirst({
         where: { userId: user.id, updatedAt: { gt: last } },
         orderBy: { updatedAt: "asc" },
@@ -67,26 +51,49 @@ export async function GET(req: Request) {
       });
       if (tx) candidates.push({ entity: "transaction", id: tx.id, at: tx.updatedAt });
 
-      const invAcc = await prisma.investmentAccount.findFirst({
-        where: { userId: user.id, updatedAt: { gt: last } },
-        orderBy: { updatedAt: "asc" },
-        select: { id: true, updatedAt: true },
-      });
-      if (invAcc) candidates.push({ entity: "investment", id: invAcc.id, at: invAcc.updatedAt });
+      if (full) {
+        const cat = await prisma.category.findFirst({
+          where: { userId: user.id, updatedAt: { gt: last } },
+          orderBy: { updatedAt: "asc" },
+          select: { id: true, updatedAt: true },
+        });
+        if (cat) candidates.push({ entity: "category", id: cat.id, at: cat.updatedAt });
 
-      const invYear = await prisma.investmentYear.findFirst({
-        where: { userId: user.id, updatedAt: { gt: last } },
-        orderBy: { updatedAt: "asc" },
-        select: { id: true, updatedAt: true },
-      });
-      if (invYear) candidates.push({ entity: "investment", id: invYear.id, at: invYear.updatedAt });
+        const bud = await prisma.budget.findFirst({
+          where: { userId: user.id, updatedAt: { gt: last } },
+          orderBy: { updatedAt: "asc" },
+          select: { id: true, updatedAt: true },
+        });
+        if (bud) candidates.push({ entity: "budget", id: bud.id, at: bud.updatedAt });
 
-      const invEntry = await prisma.investmentEntry.findFirst({
-        where: { userId: user.id, updatedAt: { gt: last } },
-        orderBy: { updatedAt: "asc" },
-        select: { id: true, updatedAt: true },
-      });
-      if (invEntry) candidates.push({ entity: "investment", id: invEntry.id, at: invEntry.updatedAt });
+        const cred = await prisma.credential.findFirst({
+          where: { userId: user.id, updatedAt: { gt: last } },
+          orderBy: { updatedAt: "asc" },
+          select: { id: true, updatedAt: true },
+        });
+        if (cred) candidates.push({ entity: "credential", id: cred.id, at: cred.updatedAt });
+
+        const invAcc = await prisma.investmentAccount.findFirst({
+          where: { userId: user.id, updatedAt: { gt: last } },
+          orderBy: { updatedAt: "asc" },
+          select: { id: true, updatedAt: true },
+        });
+        if (invAcc) candidates.push({ entity: "investment", id: invAcc.id, at: invAcc.updatedAt });
+
+        const invYear = await prisma.investmentYear.findFirst({
+          where: { userId: user.id, updatedAt: { gt: last } },
+          orderBy: { updatedAt: "asc" },
+          select: { id: true, updatedAt: true },
+        });
+        if (invYear) candidates.push({ entity: "investment", id: invYear.id, at: invYear.updatedAt });
+
+        const invEntry = await prisma.investmentEntry.findFirst({
+          where: { userId: user.id, updatedAt: { gt: last } },
+          orderBy: { updatedAt: "asc" },
+          select: { id: true, updatedAt: true },
+        });
+        if (invEntry) candidates.push({ entity: "investment", id: invEntry.id, at: invEntry.updatedAt });
+      }
 
       if (candidates.length) {
         candidates.sort((a, b) => a.at.getTime() - b.at.getTime());
@@ -95,7 +102,7 @@ export async function GET(req: Request) {
         await write(sse({ entity: c.entity, id: c.id, updatedAt: c.at.toISOString(), ...((c.extra as object) ?? {}) }, "changed"));
       }
 
-      await sleep(1500);
+      await sleep(full ? 1500 : 4000);
     }
   } catch {
     // ignore

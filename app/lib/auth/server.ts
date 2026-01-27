@@ -1,5 +1,4 @@
 import { cookies } from "next/headers";
-import { prisma } from "@/app/lib/prisma";
 import { SESSION_COOKIE_NAME, verifySessionToken } from "@/app/lib/auth/session";
 
 export async function getSession() {
@@ -15,11 +14,12 @@ export async function requireUser() {
   const userId = session?.sub;
   if (!userId) return null;
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, email: true },
-  });
-  return user;
+  // Avoid hitting the DB on every request just to load the user.
+  // The session token is already verified and contains the email.
+  return {
+    id: userId,
+    email: session?.email ?? "",
+  };
 }
 
 
