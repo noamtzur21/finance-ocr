@@ -3,6 +3,7 @@ import { requireUser } from "@/app/lib/auth/server";
 import { prisma } from "@/app/lib/prisma";
 import CredentialsClient from "./ui/CredentialsClient";
 import LiveRefresh from "@/app/ui/LiveRefresh";
+import PasskeysCard from "./ui/PasskeysCard";
 
 export default async function CredentialsPage() {
   const user = await requireUser();
@@ -16,7 +17,7 @@ export default async function CredentialsPage() {
 
   return (
     <div className="space-y-6">
-      <LiveRefresh />
+      <LiveRefresh url="/api/stream/events?full=1" />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">סיסמאות</h1>
@@ -26,6 +27,8 @@ export default async function CredentialsPage() {
           חזרה לדשבורד
         </a>
       </div>
+
+      <PasskeysCard />
 
       <div className="card p-4">
         <CredentialsClient

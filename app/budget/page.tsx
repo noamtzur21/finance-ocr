@@ -28,7 +28,7 @@ export default async function BudgetPage() {
 
   return (
     <div className="space-y-6">
-      <LiveRefresh />
+      <LiveRefresh url="/api/stream/events?full=1" />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">תקציב</h1>

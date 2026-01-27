@@ -57,6 +57,7 @@ model User {
   investmentEntries InvestmentEntry[]
   budgets    Budget[]
   credentials Credential[]
+  passkeys   PasskeyCredential[]
   ocrJobs     OcrJob[]
 
   createdAt DateTime @default(now())
@@ -259,4 +260,23 @@ model Credential {
 
   @@index([userId])
   @@index([userId, name])
+}
+
+model PasskeyCredential {
+  id     String @id @default(uuid())
+  userId String
+
+  // WebAuthn credential (stored as raw bytes)
+  credentialId Bytes @unique
+  publicKey    Bytes
+  counter      Int   @default(0)
+  transports   String?
+  deviceName   String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
