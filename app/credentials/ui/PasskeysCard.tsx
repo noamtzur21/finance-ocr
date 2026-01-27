@@ -2,6 +2,14 @@
 
 import { useEffect, useState } from "react";
 
+function getBiometricLabel() {
+  if (typeof navigator === "undefined") return "Face ID / Touch ID";
+  const ua = navigator.userAgent ?? "";
+  if (/iPhone|iPad|iPod/i.test(ua)) return "Face ID";
+  if (/Macintosh/i.test(ua)) return "Touch ID";
+  return "ביומטרי";
+}
+
 type PasskeyRow = {
   id: string;
   deviceName: string | null;
@@ -61,13 +69,23 @@ export default function PasskeysCard() {
     <div className="rounded-2xl border border-zinc-200/70 bg-white p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="text-sm font-semibold text-zinc-900">Face ID / Touch ID (Passkeys)</div>
+          <div className="text-sm font-semibold text-zinc-900">
+            {(() => {
+              const l = getBiometricLabel();
+              return l === "ביומטרי" ? "התחברות ביומטרית" : `התחברות עם ${l}`;
+            })()}
+          </div>
           <div className="mt-1 text-xs text-zinc-600">
-            מאפשר התחברות מהירה ובטוחה בלי סיסמה (אחרי שמפעילים פעם אחת).
+            זה עדיין Passkey מאחורי הקלעים — אבל בפועל תראה Face ID/Touch ID בהתאם למכשיר.
           </div>
         </div>
         <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void register()}>
-          {busy ? "מפעיל…" : "הפעל Passkey"}
+          {busy
+            ? "מפעיל…"
+            : (() => {
+                const l = getBiometricLabel();
+                return l === "ביומטרי" ? "הפעל התחברות ביומטרית" : `הפעל ${l}`;
+              })()}
         </button>
       </div>
 

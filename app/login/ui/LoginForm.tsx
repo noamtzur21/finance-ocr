@@ -3,6 +3,17 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+function getBiometricLabel() {
+  if (typeof navigator === "undefined") return "Face ID / Touch ID";
+  const ua = navigator.userAgent ?? "";
+  // iPhone/iPad: show Face ID wording
+  if (/iPhone|iPad|iPod/i.test(ua)) return "Face ID";
+  // macOS: show Touch ID wording
+  if (/Macintosh/i.test(ua)) return "Touch ID";
+  // Others: generic
+  return "ביומטרי";
+}
+
 export default function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -76,14 +87,19 @@ export default function LoginForm() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-3">
-      <button
-        type="button"
-        onClick={() => void loginWithPasskey()}
-        disabled={passkeyBusy || loading}
-        className="w-full rounded-xl border border-zinc-200 bg-white py-2 text-zinc-900 disabled:opacity-60"
-      >
-        {passkeyBusy ? "פותח Face ID/Touch ID…" : "התחבר עם Face ID / Touch ID"}
-      </button>
+      {(() => {
+        const label = getBiometricLabel();
+        return (
+          <button
+            type="button"
+            onClick={() => void loginWithPasskey()}
+            disabled={passkeyBusy || loading}
+            className="w-full rounded-xl border border-zinc-200 bg-white py-2 text-zinc-900 disabled:opacity-60"
+          >
+            {passkeyBusy ? `פותח ${label}…` : label === "ביומטרי" ? "התחבר עם ביומטרי" : `התחבר עם ${label}`}
+          </button>
+        );
+      })()}
 
       <div className="flex items-center gap-3">
         <div className="h-px flex-1 bg-zinc-200" />
