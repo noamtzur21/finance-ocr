@@ -17,7 +17,11 @@ export default function LoginForm() {
     setPasskeyBusy(true);
     try {
       const { startAuthentication } = await import("@simplewebauthn/browser");
-      const optRes = await fetch("/api/auth/passkey/authentication/options", { method: "POST" });
+      const optRes = await fetch("/api/auth/passkey/authentication/options", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: email.trim() || null }),
+      });
       if (!optRes.ok) {
         const body = (await optRes.json().catch(() => null)) as { error?: string } | null;
         setError(body?.error ?? "לא הצלחתי להתחיל התחברות");
@@ -36,8 +40,9 @@ export default function LoginForm() {
         return;
       }
       router.replace("/dashboard");
-    } catch {
-      setError("התחברות עם Face ID/Touch ID בוטלה או נכשלה");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      setError(msg ? `Passkey: ${msg}` : "התחברות עם Face ID/Touch ID בוטלה או נכשלה");
     } finally {
       setPasskeyBusy(false);
     }
