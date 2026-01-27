@@ -20,6 +20,7 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
 
   // If we know the user (email), send allowCredentials to support non-discoverable passkeys.
+  // If email is not provided, we allow discoverable credentials (one-tap).
   const email = parsed.data.email?.toLowerCase().trim() ?? "";
   let allowCredentials: Array<{ id: string }> | undefined;
   if (email) {

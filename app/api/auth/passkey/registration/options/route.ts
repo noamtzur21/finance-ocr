@@ -27,8 +27,10 @@ export async function POST() {
     userName: user.email || user.id,
     attestationType: "none",
     authenticatorSelection: {
-      residentKey: "preferred",
-      userVerification: "preferred",
+      // Make it discoverable so user can login with one tap (no email).
+      residentKey: "required",
+      userVerification: "required",
+      authenticatorAttachment: "platform",
     },
     excludeCredentials: existing.map((c: { credentialId: Uint8Array }) => ({
       id: Buffer.from(c.credentialId).toString("base64url"),

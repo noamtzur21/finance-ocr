@@ -14,16 +14,14 @@ export default function LoginForm() {
 
   async function loginWithPasskey() {
     setError(null);
-    if (!email.trim()) {
-      setError("כדי להתחבר עם Face ID/Touch ID, קודם תכתוב אימייל.");
-      return;
-    }
     setPasskeyBusy(true);
     try {
       const { startAuthentication } = await import("@simplewebauthn/browser");
       const optRes = await fetch("/api/auth/passkey/authentication/options", {
         method: "POST",
         headers: { "content-type": "application/json" },
+        // If email is empty, we attempt discoverable passkeys (one-tap).
+        // If the user has a non-discoverable credential, they can fill email and try again.
         body: JSON.stringify({ email: email.trim() || null }),
       });
       if (!optRes.ok) {
@@ -46,7 +44,13 @@ export default function LoginForm() {
       router.replace("/dashboard");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";
-      setError(msg ? `Passkey: ${msg}` : "התחברות עם Face ID/Touch ID בוטלה או נכשלה");
+      // Common macOS/Safari error: NotAllowedError / timeout.
+      // Give a helpful tip without forcing email.
+      if (msg.includes("timed out") || msg.includes("not allowed") || msg.includes("NotAllowedError")) {
+        setError("Passkey: הפעולה נחסמה/פגה. אם זה ממשיך, נסה להפעיל Passkey מחדש במסך סיסמאות ואז לנסות שוב.");
+      } else {
+        setError(msg ? `Passkey: ${msg}` : "התחברות עם Face ID/Touch ID בוטלה או נכשלה");
+      }
     } finally {
       setPasskeyBusy(false);
     }
