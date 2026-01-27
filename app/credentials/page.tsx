@@ -1,19 +1,14 @@
 import { redirect } from "next/navigation";
 import { requireUser } from "@/app/lib/auth/server";
-import { prisma } from "@/app/lib/prisma";
-import CredentialsClient from "./ui/CredentialsClient";
 import LiveRefresh from "@/app/ui/LiveRefresh";
 import PasskeysCard from "./ui/PasskeysCard";
+import Link from "next/link";
+import { Suspense } from "react";
+import CredentialsContent from "./ui/CredentialsContent";
 
 export default async function CredentialsPage() {
   const user = await requireUser();
   if (!user) redirect("/login");
-
-  const initial = await prisma.credential.findMany({
-    where: { userId: user.id },
-    orderBy: { updatedAt: "desc" },
-    select: { id: true, name: true, email: true, createdAt: true, updatedAt: true },
-  });
 
   return (
     <div className="space-y-6">
@@ -23,22 +18,23 @@ export default async function CredentialsPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">סיסמאות</h1>
           <p className="mt-1 text-sm text-zinc-600">כספת אישית מוצפנת — לשמירת פרטי התחברות.</p>
         </div>
-        <a className="btn" href="/dashboard">
+        <Link className="btn" href="/dashboard">
           חזרה לדשבורד
-        </a>
+        </Link>
       </div>
 
       <PasskeysCard />
 
-      <div className="card p-4">
-        <CredentialsClient
-          initial={initial.map((x) => ({
-            ...x,
-            createdAt: x.createdAt.toISOString(),
-            updatedAt: x.updatedAt.toISOString(),
-          }))}
-        />
-      </div>
+      <Suspense
+        fallback={
+          <div className="card p-4">
+            <div className="h-5 w-56 animate-pulse rounded bg-zinc-200" />
+            <div className="mt-4 h-72 animate-pulse rounded-2xl border border-zinc-200/70 bg-white" />
+          </div>
+        }
+      >
+        <CredentialsContent userId={user.id} />
+      </Suspense>
     </div>
   );
 }
