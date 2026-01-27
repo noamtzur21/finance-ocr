@@ -12,7 +12,10 @@ export async function GET(req: Request) {
   if (!secret) return NextResponse.json({ error: "CRON_SECRET is not set" }, { status: 500 });
 
   const auth = req.headers.get("authorization") ?? "";
-  if (auth !== `Bearer ${secret}`) return unauthorized();
+  const url = new URL(req.url);
+  const querySecret = url.searchParams.get("secret") ?? "";
+  // Support both Vercel Cron auth header and simple external cron query param.
+  if (auth !== `Bearer ${secret}` && querySecret !== secret) return unauthorized();
 
   const started = Date.now();
   let processed = 0;
