@@ -82,13 +82,18 @@ export async function POST(req: Request) {
   const counter = info.credential?.counter ?? 0;
   if (!credId || !pubKey) return NextResponse.json({ error: "Missing credential" }, { status: 400 });
 
-  // To avoid multiple stale creds confusing login, keep only the latest per user for now.
-  await prisma.passkeyCredential.deleteMany({
-    where: { userId: user.id },
-  });
-
-  await prisma.passkeyCredential.create({
-    data: {
+  // Keep multiple credentials (e.g. Mac Touch ID + iPhone Face ID).
+  // If the same passkey is synced across devices, this will update the existing row.
+  await prisma.passkeyCredential.upsert({
+    where: { credentialId: credId },
+    update: {
+      userId: user.id,
+      publicKey: pubKey,
+      counter,
+      transports: info.credential?.transports ? JSON.stringify(info.credential.transports) : null,
+      deviceName,
+    },
+    create: {
       userId: user.id,
       credentialId: credId,
       publicKey: pubKey,
