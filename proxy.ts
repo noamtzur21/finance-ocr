@@ -7,6 +7,8 @@ const PUBLIC_PATH_PREFIXES = [
   "/api/auth/login",
   "/api/auth/logout",
   "/api/auth/setup",
+  // Passkey (WebAuthn) login must be reachable before authentication.
+  "/api/auth/passkey",
   "/api/health",
   "/api/cron/ocr",
 ];
