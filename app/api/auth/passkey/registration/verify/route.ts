@@ -9,6 +9,36 @@ import { cookies } from "next/headers";
 
 export const runtime = "nodejs";
 
+function toBytes(v: unknown): Uint8Array<ArrayBuffer> | null {
+  if (!v) return null;
+  if (v instanceof Uint8Array) {
+    // Ensure it's backed by a real ArrayBuffer (not SharedArrayBuffer)
+    const out: Uint8Array<ArrayBuffer> = new Uint8Array(new ArrayBuffer(v.byteLength));
+    out.set(v);
+    return out;
+  }
+  if (typeof v === "string") {
+    const s = v.trim();
+    if (!s) return null;
+    try {
+      const b = Buffer.from(s, "base64url");
+      const out: Uint8Array<ArrayBuffer> = new Uint8Array(new ArrayBuffer(b.length));
+      out.set(b);
+      return out;
+    } catch {
+      try {
+        const b = Buffer.from(s, "base64");
+        const out: Uint8Array<ArrayBuffer> = new Uint8Array(new ArrayBuffer(b.length));
+        out.set(b);
+        return out;
+      } catch {
+        return null;
+      }
+    }
+  }
+  return null;
+}
+
 const bodySchema = z.object({
   response: z.any(),
   deviceName: z.string().max(80).optional().nullable(),
@@ -47,16 +77,21 @@ export async function POST(req: Request) {
   const info = verification.registrationInfo;
   const deviceName = parsed.data.deviceName?.trim() ? parsed.data.deviceName.trim() : null;
 
-  const credId = info.credential?.id;
-  const pubKey = info.credential?.publicKey;
+  const credId = toBytes(info.credential?.id);
+  const pubKey = toBytes(info.credential?.publicKey);
   const counter = info.credential?.counter ?? 0;
   if (!credId || !pubKey) return NextResponse.json({ error: "Missing credential" }, { status: 400 });
+
+  // To avoid multiple stale creds confusing login, keep only the latest per user for now.
+  await prisma.passkeyCredential.deleteMany({
+    where: { userId: user.id },
+  });
 
   await prisma.passkeyCredential.create({
     data: {
       userId: user.id,
-      credentialId: Buffer.from(credId),
-      publicKey: Buffer.from(pubKey),
+      credentialId: credId,
+      publicKey: pubKey,
       counter,
       transports: info.credential?.transports ? JSON.stringify(info.credential.transports) : null,
       deviceName,
