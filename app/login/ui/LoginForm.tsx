@@ -14,6 +14,10 @@ export default function LoginForm() {
 
   async function loginWithPasskey() {
     setError(null);
+    if (!email.trim()) {
+      setError("כדי להתחבר עם Face ID/Touch ID, קודם תכתוב אימייל.");
+      return;
+    }
     setPasskeyBusy(true);
     try {
       const { startAuthentication } = await import("@simplewebauthn/browser");

@@ -14,6 +14,27 @@ const bodySchema = z.object({
   response: z.any(),
 });
 
+function decodeId(s: string): Uint8Array<ArrayBuffer> | null {
+  const v = (s ?? "").trim();
+  if (!v) return null;
+  try {
+    const b = Buffer.from(v, "base64url");
+    const out: Uint8Array<ArrayBuffer> = new Uint8Array(new ArrayBuffer(b.length));
+    out.set(b);
+    return out;
+  } catch {
+    // Some browsers/flows may still use standard base64
+    try {
+      const b = Buffer.from(v, "base64");
+      const out: Uint8Array<ArrayBuffer> = new Uint8Array(new ArrayBuffer(b.length));
+      out.set(b);
+      return out;
+    } catch {
+      return null;
+    }
+  }
+}
+
 export async function POST(req: Request) {
   const secret = process.env.AUTH_SECRET;
   if (!secret) return NextResponse.json({ error: "AUTH_SECRET is missing" }, { status: 500 });
@@ -33,11 +54,26 @@ export async function POST(req: Request) {
   const credId = res.id;
   if (!credId) return NextResponse.json({ error: "Missing credential id" }, { status: 400 });
 
+  const rawId = (res as unknown as { rawId?: string }).rawId ?? "";
+  const idBytes = decodeId(credId);
+  const rawBytes = rawId ? decodeId(rawId) : null;
+  if (!idBytes && !rawBytes) return NextResponse.json({ error: "Invalid credential id" }, { status: 400 });
+
   const cred = await prisma.passkeyCredential.findFirst({
-    where: { credentialId: Buffer.from(credId, "base64url") },
+    where: {
+      OR: [
+        ...(idBytes ? [{ credentialId: idBytes }] : []),
+        ...(rawBytes ? [{ credentialId: rawBytes }] : []),
+      ],
+    },
     select: { id: true, userId: true, credentialId: true, publicKey: true, counter: true },
   });
-  if (!cred) return NextResponse.json({ error: "Unknown credential" }, { status: 401 });
+  if (!cred) {
+    return NextResponse.json(
+      { error: "Unknown credential (נסה להפעיל Passkey מחדש במסך סיסמאות ואז להתחבר עם אימייל)" },
+      { status: 401 },
+    );
+  }
 
   const verification = await verifyAuthenticationResponse({
     response: res,

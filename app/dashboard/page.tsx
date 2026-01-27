@@ -56,9 +56,6 @@ export default async function DashboardPage() {
           <p className="mt-1 text-sm text-zinc-600">{user.email}</p>
         </div>
         <div className="flex items-center gap-2">
-          <a className="btn" href="/export">
-            ייצוא
-          </a>
           <LogoutButton />
         </div>
       </div>
