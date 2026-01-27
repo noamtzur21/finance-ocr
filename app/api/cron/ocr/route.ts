@@ -25,7 +25,9 @@ export async function GET(req: Request) {
     const res = await runOneOcrJob();
     if (!res.processed) break;
     if (!res.ok) {
-      return NextResponse.json({ ok: false, processed, error: res.error }, { status: 500 });
+      // Return 200 so external cron services don't disable the job.
+      // We'll still include error details in the JSON body.
+      return NextResponse.json({ ok: false, processed, error: res.error });
     }
     processed += 1;
   }

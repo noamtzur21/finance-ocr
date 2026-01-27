@@ -4,28 +4,26 @@ import { prisma } from "@/app/lib/prisma";
 import LiveRefresh from "@/app/ui/LiveRefresh";
 import OcrStatusCell from "@/app/ui/OcrStatusCell";
 
-export default async function InvoicesPage() {
+export default async function InvoicesPage(props: { searchParams?: Promise<{ all?: string }> }) {
   const user = await requireUser();
   if (!user) redirect("/login");
 
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const sp = (await props.searchParams) ?? {};
+  const showAll = sp.all === "1";
 
   const docs = await prisma.document.findMany({
-    where: { userId: user.id, type: "income", date: { gte: start, lt: end } },
+    where: showAll ? { userId: user.id, type: "income" } : { userId: user.id, type: "income" },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     take: 200,
     select: { id: true, date: true, vendor: true, amount: true, currency: true, description: true, docNumber: true, ocrStatus: true },
   });
 
-  const sum =
-    (
-      await prisma.document.aggregate({
-        where: { userId: user.id, type: "income", date: { gte: start, lt: end } },
-        _sum: { amount: true },
-      })
-    )._sum.amount?.toString() ?? "0";
+  const sum = (
+    await prisma.document.aggregate({
+      where: { userId: user.id, type: "income" },
+      _sum: { amount: true },
+    })
+  )._sum.amount?.toString() ?? "0";
 
   return (
     <div className="space-y-6">
@@ -34,12 +32,15 @@ export default async function InvoicesPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">חשבוניות</h1>
           <p className="mt-1 text-sm text-zinc-600">
-            כאן תראה את ההכנסות של החודש (חשבוניות) — סה״כ: <span className="font-semibold text-zinc-900">{sum}</span>
+            מציג עד 200 חשבוניות — סה״כ הכנסות (כל הזמן): <span className="font-semibold text-zinc-900">{sum}</span>
           </p>
         </div>
         <div className="flex items-center gap-2">
           <a className="btn btn-primary" href="/invoices/upload">
             חשבונית חדשה
+          </a>
+          <a className="btn" href={showAll ? "/invoices" : "/invoices?all=1"}>
+            {showAll ? "הצג החודש" : "הצג הכל"}
           </a>
           <a className="btn" href="/dashboard">
             דשבורד
@@ -58,12 +59,13 @@ export default async function InvoicesPage() {
                 <th className="px-3 py-2 text-right font-medium">מס׳ חשבונית</th>
                 <th className="px-3 py-2 text-right font-medium">סכום</th>
                 <th className="px-3 py-2 text-right font-medium">OCR</th>
+                <th className="px-3 py-2 text-right font-medium">פעולה</th>
               </tr>
             </thead>
             <tbody>
               {docs.length === 0 ? (
                 <tr>
-                  <td className="px-3 py-12 text-center text-zinc-600" colSpan={6}>
+                  <td className="px-3 py-12 text-center text-zinc-600" colSpan={7}>
                     אין חשבוניות החודש. <a className="underline" href="/invoices/upload">העלה חשבונית</a>
                   </td>
                 </tr>
@@ -86,6 +88,11 @@ export default async function InvoicesPage() {
                     </td>
                     <td className="px-3 py-2">
                       <OcrStatusCell docId={d.id} status={d.ocrStatus} />
+                    </td>
+                    <td className="px-3 py-2">
+                      <a className="btn" href={`/documents/${d.id}?from=invoices`}>
+                        ערוך
+                      </a>
                     </td>
                   </tr>
                 ))
