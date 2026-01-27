@@ -2,6 +2,27 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+### Environment
+
+Copy `config/env.example` to `.env` and fill in the values.
+
+### Database
+
+1. Set `DATABASE_URL` in `.env`
+2. Generate client: `npm run db:generate`
+3. Run migrations: `npm run db:migrate`
+
+### First user (one-user system)
+
+1. Start dev server: `npm run dev`
+2. Go to `/setup` and create your single user.
+
+### Password vault
+
+To use the passwords page (`/credentials`), set `CREDENTIALS_ENCRYPTION_KEY` in your `.env`:
+
+`openssl rand -base64 32`
+
 First, run the development server:
 
 ```bash

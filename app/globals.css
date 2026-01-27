@@ -1,8 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Modern light theme */
+  --background: #f7f8fb;
+  --foreground: #0f172a;
+  --surface: rgba(255, 255, 255, 0.86);
+  --surfaceSolid: #ffffff;
+  --border: rgba(15, 23, 42, 0.10);
+  --muted: rgba(15, 23, 42, 0.60);
+  --primary: #4f46e5; /* indigo-600 */
+  --primary2: #06b6d4; /* cyan-500 */
+  --ring: rgba(79, 70, 229, 0.35);
+
+  color-scheme: light;
 }
 
 @theme inline {
@@ -12,15 +22,205 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+body {
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+}
+
+/* Default RTL for Hebrew UI */
+body {
+  direction: rtl;
+  text-align: start;
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* App background */
+  .app-shell {
+    min-height: 100dvh;
+    background:
+      radial-gradient(900px 500px at 80% -10%, color-mix(in srgb, var(--primary2) 20%, transparent), transparent 60%),
+      radial-gradient(900px 500px at 10% 0%, color-mix(in srgb, var(--primary) 18%, transparent), transparent 60%),
+      linear-gradient(180deg, #ffffff, var(--background));
+  }
+
+  .app-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: color-mix(in srgb, #ffffff 70%, transparent);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .brand-badge {
+    width: 12px;
+    height: 12px;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, var(--primary), var(--primary2));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 16%, transparent);
+  }
+
+  /* Cards */
+  .card {
+    border-radius: 1rem;
+    border: 1px solid var(--border);
+    background: var(--surfaceSolid);
+    box-shadow:
+      0 1px 0 rgba(15, 23, 42, 0.03),
+      0 10px 30px rgba(15, 23, 42, 0.06);
+  }
+  .card-soft {
+    background: var(--surface);
+    backdrop-filter: blur(10px);
+  }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 0.9rem;
+    padding: 0.55rem 0.9rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    background: var(--surfaceSolid);
+    color: var(--foreground);
+    transition: transform 120ms ease, background 120ms ease, box-shadow 120ms ease;
+  }
+  .btn:hover {
+    background: color-mix(in srgb, #000 3%, var(--surfaceSolid));
+  }
+  .btn:active {
+    transform: translateY(1px);
+  }
+  .btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 4px var(--ring);
+  }
+
+  .btn-primary {
+    border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+    background: linear-gradient(135deg, var(--primary), var(--primary2));
+    color: white;
+    box-shadow:
+      0 6px 20px color-mix(in srgb, var(--primary) 20%, transparent),
+      0 1px 0 rgba(0, 0, 0, 0.06);
+  }
+  .btn-primary:hover {
+    filter: saturate(1.05);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 92%, #000), var(--primary2));
+  }
+
+  .btn-ghost {
+    background: transparent;
+    border-color: transparent;
+  }
+  .btn-ghost:hover {
+    background: color-mix(in srgb, #000 6%, transparent);
+  }
+
+  /* Inputs */
+  .field {
+    width: 100%;
+    border-radius: 0.9rem;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.92);
+    padding: 0.6rem 0.8rem;
+    font-size: 0.95rem;
+    color: var(--foreground);
+    transition: box-shadow 120ms ease, border-color 120ms ease;
+  }
+  .field::placeholder {
+    color: color-mix(in srgb, var(--foreground) 45%, transparent);
+  }
+  .field:focus {
+    outline: none;
+    box-shadow: 0 0 0 4px var(--ring);
+    border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+  }
+
+  /* Nav */
+  .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border-radius: 0.9rem;
+    padding: 0.65rem 0.75rem;
+    color: color-mix(in srgb, var(--foreground) 80%, transparent);
+    transition: background 120ms ease, color 120ms ease;
+  }
+  .nav-link:hover {
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+    color: var(--foreground);
+  }
+  .nav-link-active {
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    color: var(--foreground);
+    border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border));
+  }
+  .nav-icon {
+    display: inline-flex;
+    height: 2rem;
+    width: 2rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.85rem;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.9);
+  }
+  .nav-icon-active {
+    border-color: color-mix(in srgb, var(--primary) 25%, var(--border));
+    background: color-mix(in srgb, var(--primary) 10%, rgba(255, 255, 255, 0.9));
+  }
+
+  /* Device preview (iPhone 15 Pro – CSS pixels) */
+  .device-iphone {
+    position: relative;
+    width: 393px;
+    height: 852px;
+    border-radius: 44px;
+    background: #0b0f19;
+    padding: 14px;
+    box-shadow:
+      0 30px 80px rgba(2, 6, 23, 0.35),
+      0 10px 25px rgba(2, 6, 23, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .device-notch {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 150px;
+    height: 30px;
+    border-radius: 9999px;
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    z-index: 2;
+  }
+
+  .device-screen {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: 34px;
+    background: white;
+  }
+
+  @media (max-width: 520px) {
+    .device-iphone {
+      width: min(92vw, 393px);
+      height: calc(min(92vw, 393px) * (852 / 393));
+    }
+  }
 }

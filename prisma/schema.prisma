@@ -1,0 +1,261 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DocumentType {
+  expense
+  income
+}
+
+enum OcrStatus {
+  pending
+  success
+  failed
+}
+
+enum OcrJobStatus {
+  pending
+  running
+  success
+  failed
+}
+
+enum InvestmentAccountType {
+  btb
+  gemel
+}
+
+enum InvestmentEntryType {
+  deposit
+  withdrawal
+  fee
+  tax
+}
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String
+
+  categories Category[]
+  documents  Document[]
+  transactions Transaction[]
+  investments InvestmentAccount[]
+  investmentYears InvestmentYear[]
+  investmentEntries InvestmentEntry[]
+  budgets    Budget[]
+  credentials Credential[]
+  ocrJobs     OcrJob[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Category {
+  id     String @id @default(uuid())
+  userId String
+  name   String
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents Document[]
+  transactions Transaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model Document {
+  id        String       @id @default(uuid())
+  userId    String
+  type      DocumentType
+  date      DateTime     @db.Date
+  amount    Decimal      @db.Decimal(12, 2)
+  currency  String       @default("ILS")
+  vendor    String
+  categoryId String?
+  description String?
+  docNumber  String?
+
+  fileKey   String
+  fileName  String
+  fileMime  String
+  fileSize  Int
+  sha256    String?
+
+  ocrStatus     OcrStatus @default(pending)
+  ocrConfidence Float?
+  ocrText       String?
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  ocrJob   OcrJob?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, date])
+  @@index([userId, type])
+  @@index([userId, sha256])
+}
+
+model Transaction {
+  id        String   @id @default(uuid())
+  userId    String
+  date      DateTime @db.Date
+  amount    Decimal  @db.Decimal(12, 2)
+  currency  String   @default("ILS")
+  vendor    String
+  description String?
+  categoryId String?
+  cardLast4  String?
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, date])
+  @@index([userId, updatedAt])
+}
+
+model InvestmentAccount {
+  id        String                @id @default(uuid())
+  userId    String
+  slug      String
+  name      String
+  type      InvestmentAccountType
+  provider  String?
+  strategy  String?
+  currency  String                @default("ILS")
+  notes     String?
+
+  // Optional: current balance the user can fill later
+  currentBalance Decimal? @db.Decimal(14, 2)
+  currentBalanceUpdatedAt DateTime?
+
+  user  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  years InvestmentYear[]
+  entries InvestmentEntry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, slug])
+  @@index([userId, updatedAt])
+}
+
+model InvestmentEntry {
+  id        String            @id @default(uuid())
+  userId    String
+  accountId String
+  type      InvestmentEntryType
+  date      DateTime          @db.Date
+  amount    Decimal           @db.Decimal(14, 2)
+  note      String?
+
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account InvestmentAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, date])
+  @@index([accountId, date])
+  @@index([userId, updatedAt])
+}
+
+model InvestmentYear {
+  id        String @id @default(uuid())
+  userId    String
+  accountId String
+  year      Int
+
+  deposits    Decimal @db.Decimal(14, 2) @default(0)
+  withdrawals Decimal @db.Decimal(14, 2) @default(0)
+
+  // Optional (fill if known)
+  feesPaid   Decimal? @db.Decimal(14, 2)
+  taxPaid    Decimal? @db.Decimal(14, 2)
+  endBalance Decimal? @db.Decimal(14, 2)
+
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account InvestmentAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([accountId, year])
+  @@index([userId, year])
+  @@index([userId, updatedAt])
+}
+
+model OcrJob {
+  id        String       @id @default(uuid())
+  userId    String
+  docId     String       @unique
+  status    OcrJobStatus @default(pending)
+  attempts  Int          @default(0)
+  nextRunAt DateTime?
+  lastError String?
+
+  startedAt  DateTime?
+  finishedAt DateTime?
+
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  doc  Document @relation(fields: [docId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status, nextRunAt])
+}
+
+model Budget {
+  id           String  @id @default(uuid())
+  userId       String
+  month        String // YYYY-MM
+  expenseLimit Decimal @db.Decimal(12, 2)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, month])
+  @@index([userId])
+}
+
+model Credential {
+  id    String @id @default(uuid())
+  userId String
+
+  name  String
+  email String
+
+  passwordCiphertext String
+  passwordIv         String
+  passwordTag        String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, name])
+}
