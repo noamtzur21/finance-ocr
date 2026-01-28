@@ -88,16 +88,6 @@ export default async function InvestmentsContent(props: { userId: string }) {
 
   return (
     <>
-      <div className="card p-4">
-        <div className="text-sm font-semibold text-zinc-900">מה כדאי להביא כדי להבין “כמה זה עולה לי”</div>
-        <ul className="mt-2 list-disc space-y-1 ps-5 text-sm text-zinc-700">
-          <li>דוח שנתי / פירוט חיובים (דמי ניהול, עמלות, דמי משמרת/תפעול אם קיימים).</li>
-          <li>פירוט הפקדות ומשיכות לפי שנה (אנחנו כבר מרכזים פה ברגע שמזינים).</li>
-          <li>לקופת גמל: בד״כ מס רווחי הון על הרווח בעת משיכה (זה לא ייעוץ מס).</li>
-          <li>ל‑BTB: עמלות/דמי שירות/דמי ניהול + פירוט ריבית/תשואה בדוח.</li>
-        </ul>
-      </div>
-
       <InvestmentsClient
         years={years}
         initial={accounts.map((a) => ({
