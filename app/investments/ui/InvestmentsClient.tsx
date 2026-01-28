@@ -27,6 +27,7 @@ type Account = {
   name: string;
   provider: string | null;
   strategy: string | null;
+  notes?: string;
   currency: string;
   currentBalance: string;
   currentBalanceUpdatedAt: string;
@@ -212,6 +213,9 @@ export default function InvestmentsClient(props: { years: number[]; initial: Acc
                   {acc.provider ? `${acc.provider} · ` : ""}
                   {acc.strategy ?? ""}
                 </div>
+                {acc.notes?.trim() ? (
+                  <div className="mt-2 text-xs text-zinc-700 whitespace-pre-line">{acc.notes.trim()}</div>
+                ) : null}
               </div>
 
               <div className="flex items-start gap-4">
