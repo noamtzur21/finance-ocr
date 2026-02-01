@@ -1,26 +1,27 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import AppFrame from "@/app/ui/AppFrame";
 import { Suspense } from "react";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Finance OCR",
-  description: "ניהול הוצאות/הכנסות עם OCR וייצוא לרו״ח",
+  description: "כספת דיגיטלית לניהול קבלות וחשבוניות",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Finance OCR",
+  },
 };
 
 export const viewport: Viewport = {
-  colorScheme: "light",
+  themeColor: "#000000",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({
@@ -29,11 +30,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="he" dir="rtl" suppressHydrationWarning>
-      <body
-        suppressHydrationWarning
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+    <html lang="he" dir="rtl">
+      <body className={inter.className}>
         <Suspense fallback={<div />}>
           <AppFrame>{children}</AppFrame>
         </Suspense>

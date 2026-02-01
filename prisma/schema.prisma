@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -44,10 +41,22 @@ enum InvestmentEntryType {
   tax
 }
 
+enum BusinessType {
+  exempt    // עוסק פטור
+  licensed  // עוסק מורשה
+  company   // חברה בע"מ
+}
+
 model User {
   id           String     @id @default(uuid())
   email        String     @unique
   passwordHash String
+
+  // Business Profile
+  businessType    BusinessType @default(exempt)
+  businessName    String?
+  taxId           String?      // ח.פ / ת.ז עסק
+  vatPercent      Decimal      @default(18.0) @db.Decimal(4, 2)
 
   categories Category[]
   documents  Document[]
@@ -85,7 +94,13 @@ model Document {
   userId    String
   type      DocumentType
   date      DateTime     @db.Date
-  amount    Decimal      @db.Decimal(12, 2)
+  
+  // Accounting fields
+  amount        Decimal      @db.Decimal(12, 2) // Total
+  vatAmount     Decimal      @default(0) @db.Decimal(12, 2)
+  preVatAmount  Decimal      @default(0) @db.Decimal(12, 2)
+  isRecognized  Decimal      @default(100.0) @db.Decimal(5, 2) // % recognized
+  
   currency  String       @default("ILS")
   vendor    String
   categoryId String?
@@ -227,6 +242,25 @@ model OcrJob {
   @@index([userId, status, nextRunAt])
 }
 
+model PasskeyCredential {
+  id     String @id @default(uuid())
+  userId String
+
+  // WebAuthn credential (stored as raw bytes)
+  credentialId Bytes @unique
+  publicKey    Bytes
+  counter      Int   @default(0)
+  transports   String?
+  deviceName   String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
 model Budget {
   id           String  @id @default(uuid())
   userId       String
@@ -260,23 +294,4 @@ model Credential {
 
   @@index([userId])
   @@index([userId, name])
-}
-
-model PasskeyCredential {
-  id     String @id @default(uuid())
-  userId String
-
-  // WebAuthn credential (stored as raw bytes)
-  credentialId Bytes @unique
-  publicKey    Bytes
-  counter      Int   @default(0)
-  transports   String?
-  deviceName   String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId])
 }
