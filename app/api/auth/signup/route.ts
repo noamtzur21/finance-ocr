@@ -54,7 +54,7 @@ export async function POST(req: Request) {
   if (dup) return NextResponse.json({ error: "Email already registered" }, { status: 409 });
 
   if (phoneE164) {
-    const phoneDup = await prisma.user.findUnique({
+    const phoneDup = await prisma.user.findFirst({
       where: { phoneNumber: phoneE164 },
       select: { id: true },
     });
