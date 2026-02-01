@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   const passwordHash = await hashPassword(password);
 
   const user = await prisma.user.create({
-    data: { email: email.toLowerCase(), passwordHash },
+    data: { email: email.toLowerCase(), passwordHash, isAdmin: true },
     select: { id: true, email: true },
   });
 

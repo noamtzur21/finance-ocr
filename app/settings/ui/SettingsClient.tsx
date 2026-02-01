@@ -11,6 +11,7 @@ type SettingsProps = {
     businessName: string;
     taxId: string;
     vatPercent: string;
+    phoneNumber: string;
   };
 };
 
@@ -92,6 +93,20 @@ export default function SettingsClient({ initial }: SettingsProps) {
           />
         </div>
       )}
+
+      <div>
+        <label className="text-sm font-medium text-zinc-900">מספר טלפון (לשליחת קבלות בוואטסאפ)</label>
+        <input
+          className="field mt-1 w-full"
+          type="tel"
+          value={form.phoneNumber}
+          onChange={(e) => setDraft({ ...form, phoneNumber: e.target.value })}
+          placeholder="050-1234567"
+        />
+        <p className="mt-1 text-xs text-zinc-500">
+          המספר שתשלח ממנו תמונות קבלות יישמר אוטומטית בחשבון שלך. ניתן לשנות או להסיר את המספר בכל עת.
+        </p>
+      </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
       {ok && <p className="text-sm text-emerald-600 font-medium">ההגדרות נשמרו בהצלחה!</p>}

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { prisma } from "@/app/lib/prisma";
 import LoginForm from "./ui/LoginForm";
 
@@ -16,6 +17,15 @@ export default async function LoginPage() {
         <div className="mt-6">
           <LoginForm />
         </div>
+        <p className="mt-4 text-center text-sm text-zinc-600">
+          <Link href="/forgot-password" className="font-medium text-zinc-900 underline">
+            שכחתי סיסמה
+          </Link>
+          {" · "}
+          <Link href="/signup" className="font-medium text-zinc-900 underline">
+            הרשמה
+          </Link>
+        </p>
       </div>
     </div>
   );

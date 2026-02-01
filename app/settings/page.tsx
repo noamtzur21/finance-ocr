@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { requireUser } from "@/app/lib/auth/server";
 import { prisma } from "@/app/lib/prisma";
 import SettingsClient from "./ui/SettingsClient";
@@ -15,6 +16,8 @@ export default async function SettingsPage() {
       businessName: true,
       taxId: true,
       vatPercent: true,
+      phoneNumber: true,
+      isAdmin: true,
     },
   });
 
@@ -35,9 +38,22 @@ export default async function SettingsPage() {
             businessName: dbUser.businessName ?? "",
             taxId: dbUser.taxId ?? "",
             vatPercent: dbUser.vatPercent.toString(),
+            phoneNumber: dbUser.phoneNumber ?? "",
           }}
         />
       </div>
+
+      {dbUser.isAdmin ? (
+        <div className="card p-4">
+          <h2 className="text-lg font-medium text-zinc-900">ניהול משתמשים</h2>
+          <p className="mt-1 text-sm text-zinc-600">
+            צור משתמשים ללקוחות — אימייל, סיסמה ומספר טלפון. קבלות שיישלחו ממספר הטלפון יישמרו רק בחשבון של אותו לקוח.
+          </p>
+          <Link href="/admin/users" className="btn btn-primary mt-3">
+            ניהול משתמשים
+          </Link>
+        </div>
+      ) : null}
     </div>
   );
 }

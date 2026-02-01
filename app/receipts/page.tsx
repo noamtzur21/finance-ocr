@@ -5,6 +5,9 @@ import Link from "next/link";
 import { Suspense } from "react";
 import ReceiptsTable from "./ui/ReceiptsTable";
 
+// Always fetch fresh data so new WhatsApp receipts appear without stale cache
+export const dynamic = "force-dynamic";
+
 export default async function ReceiptsPage(props: { searchParams?: Promise<{ all?: string }> }) {
   const user = await requireUser();
   if (!user) redirect("/login");

@@ -4,13 +4,20 @@ import { verifySessionToken, SESSION_COOKIE_NAME } from "@/app/lib/auth/session"
 const PUBLIC_PATH_PREFIXES = [
   "/login",
   "/setup",
+  "/signup",
+  "/forgot-password",
+  "/reset-password",
   "/api/auth/login",
   "/api/auth/logout",
   "/api/auth/setup",
+  "/api/auth/signup",
+  "/api/auth/forgot-password",
+  "/api/auth/reset-password",
   // Passkey (WebAuthn) login must be reachable before authentication.
   "/api/auth/passkey",
   "/api/health",
   "/api/cron/ocr",
+  "/api/webhooks/incoming",
 ];
 
 function isPublicPath(pathname: string) {

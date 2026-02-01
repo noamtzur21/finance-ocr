@@ -52,6 +52,13 @@ model User {
   email        String     @unique
   passwordHash String
 
+  // Admin: only admin can create new users (customers)
+  isAdmin Boolean @default(false)
+
+  // Omnichannel: link incoming messages (e.g. WhatsApp via Twilio) to user
+  phoneNumber String?    @unique // E.164 for webhook lookup
+  externalId  String?     // e.g. Telegram chat id (optional, for future channels)
+
   // Business Profile
   businessType    BusinessType @default(exempt)
   businessName    String?
@@ -68,9 +75,24 @@ model User {
   credentials Credential[]
   passkeys   PasskeyCredential[]
   ocrJobs     OcrJob[]
+  passwordResets PasswordReset[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model PasswordReset {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
 }
 
 model Category {

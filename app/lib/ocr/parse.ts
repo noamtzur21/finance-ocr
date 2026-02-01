@@ -129,13 +129,31 @@ function parseDocNumber(text: string): string | null {
   return m?.[1] ?? null;
 }
 
+/** 0–1 score: higher = more confident (e.g. amount from "total" line, vendor found). Used to mark docs for review when low. */
+function receiptConfidence(parsed: {
+  date: Date | null;
+  amount: string | null;
+  vendor: string | null;
+  docNumber: string | null;
+  currency: string | null;
+}): number {
+  let score = 0.5; // base
+  if (parsed.amount) score += 0.2;
+  if (parsed.vendor) score += 0.15;
+  if (parsed.date) score += 0.1;
+  if (parsed.docNumber) score += 0.05;
+  return Math.min(1, score);
+}
+
 export function parseReceiptText(text: string) {
   const date = parseDate(text);
   const amount = parseAmount(text);
   const vendor = parseVendor(text);
   const docNumber = parseDocNumber(text);
   const currency = parseCurrency(text);
-  return { date, amount, vendor, docNumber, currency };
+  const parsed = { date, amount, vendor, docNumber, currency };
+  const confidence = receiptConfidence(parsed);
+  return { ...parsed, confidence };
 }
 
 

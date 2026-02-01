@@ -45,7 +45,7 @@ export async function runOneOcrJob() {
   try {
     const doc = await prisma.document.findFirst({
       where: { id: job.docId, userId: job.userId },
-      select: { id: true, fileKey: true, fileMime: true, fileName: true, createdAt: true, vendor: true, amount: true, date: true, docNumber: true },
+      select: { id: true, fileKey: true, fileMime: true, fileName: true, createdAt: true, vendor: true, amount: true, date: true, docNumber: true, description: true },
     });
     if (!doc) throw new Error("Document not found");
 
@@ -75,17 +75,21 @@ export async function runOneOcrJob() {
     const sameDayLocal = (a: Date, b: Date) =>
       a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
     const isDateDefault = sameDayLocal(doc.date, doc.createdAt);
+    const descriptionEmpty = !doc.description || doc.description.trim() === "";
+    const shortDescription = parsed.vendor ? `קבלה מ-${parsed.vendor}` : "קבלה (נסרק אוטומטית)";
 
     await prisma.document.update({
       where: { id: doc.id },
       data: {
         ocrStatus: text.trim() ? "success" : "failed",
         ocrText: text.slice(0, 50_000),
+        ocrConfidence: parsed.confidence,
         ...(parsed.date && isDateDefault ? { date: parsed.date } : {}),
         ...(parsed.amount && isAmountZero ? { amount: parsed.amount } : {}),
         ...(parsed.vendor && isVendorPlaceholder ? { vendor: parsed.vendor } : {}),
         ...(parsed.docNumber && isDocNumberEmpty ? { docNumber: parsed.docNumber } : {}),
         ...(parsed.currency ? { currency: parsed.currency } : {}),
+        ...(descriptionEmpty ? { description: shortDescription } : {}),
       },
     });
 
