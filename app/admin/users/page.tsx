@@ -20,11 +20,20 @@ export default async function AdminUsersPage() {
       <div className="card p-6">
         <CreateUserForm />
       </div>
-      <p className="text-sm text-zinc-600">
+      <div className="flex flex-wrap gap-3 text-sm text-zinc-600">
         <Link href="/settings" className="font-medium text-zinc-900 underline">
           חזרה להגדרות
         </Link>
-      </p>
+        <span>·</span>
+        <a
+          href="/api/admin/ocr-status"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium text-zinc-900 underline"
+        >
+          סטטוס OCR (כמה ממתינים, שגיאות)
+        </a>
+      </div>
     </div>
   );
 }
