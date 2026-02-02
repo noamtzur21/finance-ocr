@@ -12,7 +12,7 @@ const metaSchema = z.object({
   vendor: z.string().optional(),
   amount: z.string().optional(),
   categoryId: z.string().optional(),
-  description: z.string().optional(),
+  description: z.string().nullable().optional(),
 });
 
 type Meta = z.infer<typeof metaSchema>;

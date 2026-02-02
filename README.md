@@ -37,6 +37,11 @@ To use the passwords page (`/credentials`), set `CREDENTIALS_ENCRYPTION_KEY` in 
 
 `openssl rand -base64 32`
 
+### OCR (Google Vision)
+
+- **Recommended on Vercel:** Set `GOOGLE_VISION_API_KEY` (API key from Google Cloud Console → APIs & Services → Credentials). Vision is then called via REST and avoids the OpenSSL DECODER error. Enable "Cloud Vision API" for the key’s project.
+- **Alternative:** Set `GOOGLE_CREDENTIALS_JSON` to the full service-account JSON. On Vercel, if you see `error:1E08010C:DECODER routines::unsupported`, prefer using `GOOGLE_VISION_API_KEY` instead.
+
 First, run the development server:
 
 ```bash

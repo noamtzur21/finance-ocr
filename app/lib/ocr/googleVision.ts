@@ -1,6 +1,8 @@
 import { ImageAnnotatorClient } from "@google-cloud/vision";
 import { Storage } from "@google-cloud/storage";
 
+const VISION_REST_URL = "https://vision.googleapis.com/v1/images:annotate";
+
 let cachedClient: ImageAnnotatorClient | null = null;
 let cachedStorage: Storage | null = null;
 let cachedCreds:
@@ -9,6 +11,15 @@ let cachedCreds:
       credentials: { client_email: string; private_key: string };
       projectId?: string;
     } = null;
+
+/** Normalize private key so OpenSSL 3 (Vercel/Node 18+) accepts it. Handles \\n, \\\\n, and CRLF. */
+function normalizePrivateKey(key: string): string {
+  return key
+    .replace(/\\\\n/g, "\n")
+    .replace(/\\n/g, "\n")
+    .replace(/\r\n/g, "\n")
+    .trim();
+}
 
 function getGoogleCreds() {
   if (cachedCreds !== null) return cachedCreds;
@@ -25,11 +36,7 @@ function getGoogleCreds() {
       projectId?: string;
     };
     const client_email = parsed.client_email?.trim();
-    // Normalize PEM: escaped \n, \r\n, and trim so OpenSSL 3 (Node 18+) accepts it
-    let private_key = parsed.private_key
-      ?.replace(/\\n/g, "\n")
-      ?.replace(/\r\n/g, "\n")
-      ?.trim();
+    const private_key = parsed.private_key ? normalizePrivateKey(parsed.private_key) : undefined;
     if (!client_email || !private_key) {
       cachedCreds = null;
       return cachedCreds;
@@ -61,7 +68,44 @@ function getStorage() {
   return cachedStorage;
 }
 
+/**
+ * Vision via REST + API key. No JWT/private key, so avoids OpenSSL DECODER error on Vercel.
+ * Set GOOGLE_VISION_API_KEY in env and enable Vision API for the key's project.
+ */
+async function extractTextFromImageViaRest(buffer: Buffer): Promise<string> {
+  const apiKey = process.env.GOOGLE_VISION_API_KEY?.trim();
+  if (!apiKey) throw new Error("GOOGLE_VISION_API_KEY is not set");
+
+  const res = await fetch(`${VISION_REST_URL}?key=${encodeURIComponent(apiKey)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      requests: [
+        {
+          image: { content: buffer.toString("base64") },
+          features: [{ type: "TEXT_DETECTION", maxResults: 10 }],
+        },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const errBody = await res.text();
+    throw new Error(`Vision REST failed ${res.status}: ${errBody.slice(0, 500)}`);
+  }
+
+  const data = (await res.json()) as {
+    responses?: Array<{ fullTextAnnotation?: { text?: string }; error?: { message?: string } }>;
+  };
+  const first = data.responses?.[0];
+  if (first?.error) throw new Error(first.error.message ?? "Vision API error");
+  return first?.fullTextAnnotation?.text ?? "";
+}
+
 export async function extractTextFromImage(buffer: Buffer) {
+  if (process.env.GOOGLE_VISION_API_KEY?.trim()) {
+    return extractTextFromImageViaRest(buffer);
+  }
   const client = getClient();
   const [result] = await client.textDetection({ image: { content: buffer } });
   const text = result.fullTextAnnotation?.text ?? "";

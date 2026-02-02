@@ -39,6 +39,7 @@ export default function DocumentEditor({ doc, categories, defaultBackHref, vatPe
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [savedSuccess, setSavedSuccess] = useState(false);
   const [previewFailed, setPreviewFailed] = useState(false);
 
   // Auto-calculate VAT logic
@@ -66,6 +67,8 @@ export default function DocumentEditor({ doc, categories, defaultBackHref, vatPe
         }),
       });
       if (!res.ok) throw new Error("שמירה נכשלה");
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "שגיאה");
@@ -121,8 +124,9 @@ export default function DocumentEditor({ doc, categories, defaultBackHref, vatPe
                 className="field mt-1 w-full"
                 value={form.docNumber ?? ""}
                 onChange={(e) => setForm({ ...form, docNumber: e.target.value })}
-                placeholder="למשל: 10234"
+                placeholder="למשל: INV-0001 או 10234"
               />
+              <p className="text-xs text-zinc-500 mt-1">מספר חשבונית או קבלה מהמסמך – ימולא אוטומטית אחרי סריקת OCR</p>
             </div>
           </div>
 
@@ -156,6 +160,7 @@ export default function DocumentEditor({ doc, categories, defaultBackHref, vatPe
             />
           </div>
 
+          {savedSuccess && <p className="text-sm text-emerald-600 font-medium">נשמר בהצלחה</p>}
           {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
 
           {doc.ocrStatus === "failed" && doc.ocrText ? (

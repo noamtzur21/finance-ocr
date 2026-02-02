@@ -40,9 +40,12 @@ export default function OcrStatusCell(props: { docId: string; status: Status; er
       <span className={clsStatus(status)}>{label}</span>
 
       {status === "pending" ? (
-        <div className="h-2 w-20 overflow-hidden rounded-full bg-zinc-200/70">
-          <div className="h-full w-1/2 animate-pulse rounded-full bg-zinc-500/60" />
-        </div>
+        <span className="flex items-center gap-2" title="סריקה אוטומטית – בדרך כלל תוך 1–2 דקות">
+          <div className="h-2 w-20 overflow-hidden rounded-full bg-zinc-200/70">
+            <div className="h-full w-1/2 animate-pulse rounded-full bg-zinc-500/60" />
+          </div>
+          <span className="text-[10px] text-zinc-500 hidden sm:inline">~1–2 דק׳</span>
+        </span>
       ) : null}
 
       {status === "failed" ? (
