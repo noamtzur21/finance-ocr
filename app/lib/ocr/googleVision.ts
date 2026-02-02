@@ -141,17 +141,21 @@ async function sleep(ms: number) {
 
 async function visionStartPdfOcrViaRest(opts: {
   apiKey: string;
-  sourceUri: string;
+  sourceUri?: string;
+  contentBase64?: string;
   destinationUri: string;
   pages: number[];
 }) {
+  if (!opts.sourceUri && !opts.contentBase64) throw new Error("Vision PDF REST: missing sourceUri/content");
   const res = await fetch(`${VISION_FILES_ASYNC_REST_URL}?key=${encodeURIComponent(opts.apiKey)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       requests: [
         {
-          inputConfig: { gcsSource: { uri: opts.sourceUri }, mimeType: "application/pdf" },
+          inputConfig: opts.contentBase64
+            ? { content: opts.contentBase64, mimeType: "application/pdf" }
+            : { gcsSource: { uri: opts.sourceUri }, mimeType: "application/pdf" },
           features: [{ type: "DOCUMENT_TEXT_DETECTION" }],
           pages: opts.pages,
           outputConfig: { gcsDestination: { uri: opts.destinationUri } },
@@ -200,15 +204,6 @@ export async function extractTextFromPdfScannedViaVision(buffer: Buffer, opts?: 
   const stamp = Date.now();
   const outPrefix = [prefix, "vision", docId, String(stamp)].filter(Boolean).join("/");
   const destination = `gs://${bucket}/${outPrefix}/`;
-  const sourceObjectName = `${outPrefix}/input.pdf`;
-  const sourceUri = `gs://${bucket}/${sourceObjectName}`;
-
-  // Vision async PDF OCR requires a GCS source. Upload the PDF temporarily.
-  await storage.bucket(bucket).file(sourceObjectName).save(buffer, {
-    resumable: false,
-    contentType: "application/pdf",
-    validation: false,
-  });
 
   const maxPages = getPdfMaxPages();
   const pages = Array.from({ length: maxPages }, (_, i) => i + 1);
@@ -222,7 +217,14 @@ export async function extractTextFromPdfScannedViaVision(buffer: Buffer, opts?: 
     );
   }
   if (apiKey) {
-    const opName = await visionStartPdfOcrViaRest({ apiKey, sourceUri, destinationUri: destination, pages });
+    // IMPORTANT: Avoid uploading the PDF to GCS from serverless (it uses internal PassThrough streams).
+    // Instead, send the PDF bytes directly as base64 to Vision REST.
+    const opName = await visionStartPdfOcrViaRest({
+      apiKey,
+      contentBase64: buffer.toString("base64"),
+      destinationUri: destination,
+      pages,
+    });
     const timeoutMs = process.env.VERCEL ? 8000 : 30_000;
     try {
       await visionWaitOperationViaRest({ apiKey, operationName: opName, timeoutMs });
@@ -236,6 +238,14 @@ export async function extractTextFromPdfScannedViaVision(buffer: Buffer, opts?: 
       });
     }
   } else {
+    const sourceObjectName = `${outPrefix}/input.pdf`;
+    const sourceUri = `gs://${bucket}/${sourceObjectName}`;
+    // Vision async PDF OCR requires a GCS source when using the SDK (service account). Upload temporarily.
+    await storage.bucket(bucket).file(sourceObjectName).save(buffer, {
+      resumable: false,
+      contentType: "application/pdf",
+      validation: false,
+    });
     const client = getClient();
     // Types in @google-cloud/vision lag behind some request fields in practice (e.g. `pages`).
     type AsyncBatchClient = { asyncBatchAnnotateFiles: (req: unknown) => Promise<unknown[]> };
