@@ -48,8 +48,10 @@ function parseAmount(text: string): string | null {
   const candidates: Array<{ raw: string; score: number }> = [];
   const lines = text.split(/\r?\n/);
 
-  const totalHints = /(סה["״׳']?כ|סך\s*הכל|לתשלום|total|grand\s*total)/i;
+  const totalHints = /(סה["״׳']?כ|סך\s*הכל|לתשלום|total|grand\s*total|amount\s*due|balance\s*due|total\s*due)/i;
   const vatHints = /(מע["״׳']?מ|vat)/i;
+  const currencyHints = /[₪$€]|ש["״׳']?ח|ils\b|nis\b|usd\b|eur\b/i;
+  const addressHints = /\b(ave|avenue|street|st\.|road|rd\.|blvd|boulevard|university|suite|ste\.|zip|p\.?\s*o\.?\s*box)\b/i;
 
   const amountRe =
     /(\d{1,3}(?:[,\s]\d{3})*(?:[.,]\d{2})?|\d+(?:[.,]\d{2})?)\s*(?:₪|ש["״׳']?ח|ils|nis|usd|eur|\$|€)?/gi;
@@ -59,15 +61,27 @@ function parseAmount(text: string): string | null {
     if (!trimmed) continue;
     const hasTotal = totalHints.test(trimmed);
     const hasVat = vatHints.test(trimmed);
+    const hasCurrency = currencyHints.test(trimmed);
+    const looksLikeAddress = addressHints.test(trimmed);
     for (const m of trimmed.matchAll(amountRe)) {
       const n = normalizeNumber(m[1]);
       if (!n) continue;
       const val = Number(n);
       if (!Number.isFinite(val) || val <= 0 || val > 1_000_000) continue;
+
+      // Filter common non-amounts: ZIP codes / address numbers.
+      // Example: "94301" from Palo Alto should not become amount.
+      const isInteger = !n.includes(".");
+      const isZipLike = isInteger && val >= 10_000 && val <= 99_999;
+      if (!hasCurrency && isZipLike && (looksLikeAddress || !hasTotal)) continue;
+
       let score = 0;
       if (hasTotal) score += 5;
       if (hasVat) score -= 3;
-      if (/[₪]|ש["״׳']?ח|ils|nis/i.test(trimmed)) score += 1;
+      if (hasCurrency) score += 2;
+      // Prefer decimal-looking amounts (e.g. 19.00) over big integers.
+      if (/\d[.,]\d{2}\b/.test(m[1])) score += 2;
+      if (looksLikeAddress) score -= 3;
       candidates.push({ raw: n, score });
     }
   }
@@ -82,51 +96,70 @@ function parseAmount(text: string): string | null {
     .map((m) => normalizeNumber(m[1]))
     .filter((x): x is string => Boolean(x))
     .map((x) => ({ raw: x, n: Number(x) }))
-    .filter((x) => x.n > 0 && x.n < 1_000_000);
+    .filter((x) => x.n > 0 && x.n < 1_000_000)
+    .filter((x) => {
+      const isInteger = !x.raw.includes(".");
+      const isZipLike = isInteger && x.n >= 10_000 && x.n <= 99_999;
+      return !isZipLike;
+    });
 
   nums.sort((a, b) => b.n - a.n);
   return nums[0]?.raw ?? null;
 }
 
 function parseVendor(text: string): string | null {
-  const lines = text
+  const allLines = text
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean)
-    .slice(0, 15);
+    .slice(0, 25);
 
-  const bad = [
-    "חשבונית",
-    "קבלה",
-    "מס",
-    "תאריך",
-    "סה\"כ",
-    "סה״כ",
-    "total",
-    "tax",
-    "vat",
-  ];
+  // Prefer vendor lines before "bill to"/"ship to" blocks when present.
+  const stopIdx = allLines.findIndex((l) => /\b(bill\s*to|ship\s*to)\b/i.test(l));
+  const lines = (stopIdx > 0 ? allLines.slice(0, stopIdx) : allLines).slice(0, 25);
 
+  const badRe =
+    /(חשבונית|קבלה|\b(invoice|receipt)\b|\b(date|due)\b|\b(bill\s*to|ship\s*to)\b|סה["״׳']?כ|סך\s*הכל|total|tax|vat)/i;
+  const companyHints = /\b(inc\.?|ltd\.?|llc|corp\.?|gmbh|s\.a\.)\b|בע["״׳']?מ|\(.+\)/i;
+
+  let best: { line: string; score: number } | null = null;
   for (const line of lines) {
     if (line.length < 3) continue;
     if (line.length > 120) continue;
-    const lower = line.toLowerCase();
-    if (bad.some((b) => lower.includes(b.toLowerCase()))) continue;
+    if (badRe.test(line)) continue;
     // must contain at least one letter (he/en)
     if (!/[\p{L}]/u.test(line)) continue;
     // avoid lines that are mostly numbers/phone
     const digits = (line.match(/\d/g) ?? []).length;
     if (digits > 10) continue;
-    return line.slice(0, 80);
+    let score = 0;
+    if (companyHints.test(line)) score += 5;
+    if (digits > 0) score -= Math.min(5, Math.floor(digits / 2));
+    if (line.length >= 4 && line.length <= 70) score += 1;
+    // Prefer top lines (vendor header typically near the start)
+    const idx = lines.indexOf(line);
+    score += Math.max(0, 3 - idx) * 0.5;
+    if (!best || score > best.score) best = { line, score };
   }
-  return null;
+  return best?.score && best.score >= 1 ? best.line.slice(0, 80) : null;
 }
 
 function parseDocNumber(text: string): string | null {
-  const m = text.match(
-    /(?:חשבונית|חשבונית\s*מס|קבלה|מסמך|document|invoice)\s*(?:מספר|מס'|no\.?|#)?\s*[:\-]?\s*([A-Za-z0-9\-\/]{4,})/i,
-  );
-  return m?.[1] ?? null;
+  const patterns: RegExp[] = [
+    /\binvoice\s*(?:number|no\.?|#)\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9\-\/]{3,})/i,
+    /\b(receipt|document)\s*(?:number|no\.?|#)\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9\-\/]{3,})/i,
+    /(?:חשבונית|חשבונית\s*מס|קבלה|מסמך)\s*(?:מספר|מס'|מס)\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9\-\/]{3,})/i,
+    /\binvoice\s*number\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9\-\/]{3,})/i,
+  ];
+  for (const re of patterns) {
+    const m = text.match(re);
+    const candidate = m?.[2] ?? m?.[1];
+    if (!candidate) continue;
+    // Require at least one digit so we don't return "number" / "invoice"
+    if (!/\d/.test(candidate)) continue;
+    return candidate;
+  }
+  return null;
 }
 
 /** 0–1 score: higher = more confident (e.g. amount from "total" line, vendor found). Used to mark docs for review when low. */
