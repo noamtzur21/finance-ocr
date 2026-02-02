@@ -22,9 +22,15 @@ export async function GET(req: Request) {
   const stream = new TransformStream();
   const writer = stream.writable.getWriter();
   const encoder = new TextEncoder();
+  let streamClosed = false;
 
   const write = async (chunk: string) => {
-    await writer.write(encoder.encode(chunk));
+    if (streamClosed) return;
+    try {
+      await writer.write(encoder.encode(chunk));
+    } catch {
+      streamClosed = true;
+    }
   };
 
   // Start with current "watermark"
@@ -35,7 +41,7 @@ export async function GET(req: Request) {
 
   const signal = req.signal;
   try {
-    while (!signal.aborted) {
+    while (!signal.aborted && !streamClosed) {
       // Heartbeat so proxies keep the connection alive
       await write(`: ping\n\n`);
 
@@ -66,7 +72,7 @@ export async function GET(req: Request) {
       await sleep(2000);
     }
   } catch {
-    // ignore (client disconnect etc)
+    streamClosed = true;
   } finally {
     try {
       await writer.close();

@@ -115,9 +115,14 @@ export async function runOneOcrJob() {
 
     // Mark document as failed if we give up
     if (!willRetry) {
+      // User-friendly message for stream/connection errors (common on serverless)
+      const isStreamError = /stream was destroyed|write after.*destroy|ECONNRESET|ETIMEDOUT/i.test(err);
+      const displayErr = isStreamError
+        ? "OCR זמנית נכשל (שגיאת תקשורת). נסה שוב או לחץ 'נסה OCR שוב' במסמך."
+        : `OCR job failed: ${err}`;
       await prisma.document.update({
         where: { id: job.docId },
-        data: { ocrStatus: "failed", ocrText: `OCR job failed: ${err}`.slice(0, 50_000) },
+        data: { ocrStatus: "failed", ocrText: displayErr.slice(0, 50_000) },
       });
     }
 
