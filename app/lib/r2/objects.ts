@@ -2,7 +2,6 @@ import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, DeleteObjectComm
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { getR2Bucket, getR2Client } from "@/app/lib/r2/client";
 import { Readable } from "stream";
-import type { ReadableStream as NodeWebReadableStream } from "stream/web";
 
 export async function putObject(opts: {
   key: string;
@@ -70,12 +69,18 @@ async function streamToBuffer(body: unknown): Promise<Buffer> {
     return Buffer.concat(chunks);
   }
 
+  // AWS SDK v3 (Node 18+) sometimes provides helpers on Body
+  if (body && typeof (body as { transformToByteArray?: unknown }).transformToByteArray === "function") {
+    const bytes = await (body as { transformToByteArray: () => Promise<Uint8Array> }).transformToByteArray();
+    return Buffer.from(bytes);
+  }
+
   // Web ReadableStream
   if (body && typeof (body as { getReader?: unknown }).getReader === "function") {
     const rs = body as ReadableStream<Uint8Array>;
-    if (typeof Readable.fromWeb === "function") {
-      return await streamToBuffer(Readable.fromWeb(rs as unknown as NodeWebReadableStream));
-    }
+    // IMPORTANT: Avoid Readable.fromWeb() here.
+    // On Vercel/serverless we've seen "Cannot call write after a stream was destroyed" coming from
+    // internal PassThrough streams used by fromWeb(). Reading via getReader() avoids that path.
     const reader = rs.getReader();
     const chunks: Uint8Array[] = [];
     while (true) {
