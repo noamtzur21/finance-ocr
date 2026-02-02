@@ -122,7 +122,14 @@ export async function runOneOcrJob() {
     return { ok: true, processed: true as const, jobId: job.id, docId: doc.id };
   } catch (e) {
     const err = e instanceof Error ? e.message : String(e);
-    console.error("[ocr/worker] job failed", { docId: job.docId, attempts: job.attempts, error: err });
+    console.error("[ocr/worker] job failed", {
+      docId: job.docId,
+      attempts: job.attempts,
+      error: err,
+      name: e instanceof Error ? e.name : undefined,
+      stack: e instanceof Error ? e.stack : undefined,
+      cause: e instanceof Error ? (e as { cause?: unknown }).cause : undefined,
+    });
     const attempts = job.attempts + 1;
     const willRetry = attempts < MAX_ATTEMPTS;
     await prisma.ocrJob.update({
