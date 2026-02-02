@@ -55,12 +55,26 @@ export async function runOneOcrJob() {
     let text = "";
     const isPdf = doc.fileMime === "application/pdf" || doc.fileName.toLowerCase().endsWith(".pdf");
     const hasGcsPdfOcr = !!process.env.GOOGLE_VISION_OCR_GCS_OUTPUT_URI?.trim();
+    const hasVisionApiKey = !!process.env.GOOGLE_VISION_API_KEY?.trim();
+    const isVercel = !!process.env.VERCEL;
+
+    console.info("[ocr/worker] starting", {
+      docId: doc.id,
+      isPdf,
+      fileMime: doc.fileMime,
+      fileName: doc.fileName,
+      isVercel,
+      hasVisionApiKey,
+      hasGcsPdfOcr,
+    });
 
     if (isPdf) {
       // On Vercel/serverless, pdf-parse often fails (Path2D, streams). When GCS is set, use Vision only.
       if (hasGcsPdfOcr) {
+        console.info("[ocr/worker] ocr method", { docId: doc.id, method: "vision_pdf_gcs" });
         text = await extractTextFromPdfScannedViaVision(bytes, { docId: doc.id });
       } else {
+        console.info("[ocr/worker] ocr method", { docId: doc.id, method: "pdf_text_then_vision" });
         try {
           text = await extractTextFromPdf(bytes);
         } catch {
@@ -69,6 +83,7 @@ export async function runOneOcrJob() {
         if (!text.trim()) text = await extractTextFromPdfScannedViaVision(bytes, { docId: doc.id });
       }
     } else {
+      console.info("[ocr/worker] ocr method", { docId: doc.id, method: hasVisionApiKey ? "vision_image_rest" : "vision_image_sdk" });
       text = await extractTextFromImage(bytes);
     }
 

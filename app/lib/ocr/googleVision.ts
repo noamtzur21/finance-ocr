@@ -2,6 +2,8 @@ import { ImageAnnotatorClient } from "@google-cloud/vision";
 import { Storage } from "@google-cloud/storage";
 
 const VISION_REST_URL = "https://vision.googleapis.com/v1/images:annotate";
+const VISION_FILES_ASYNC_REST_URL = "https://vision.googleapis.com/v1/files:asyncBatchAnnotate";
+const VISION_OPERATIONS_REST_BASE = "https://vision.googleapis.com/v1/";
 
 let cachedClient: ImageAnnotatorClient | null = null;
 let cachedStorage: Storage | null = null;
@@ -128,12 +130,63 @@ function parseGsUri(uri: string) {
 
 function getPdfMaxPages() {
   const raw = process.env.GOOGLE_VISION_PDF_MAX_PAGES;
-  const n = raw ? Number(raw) : 5;
+  // On Vercel (especially Hobby), keep it very small to reduce runtime/timeout risk.
+  const n = raw ? Number(raw) : process.env.VERCEL ? 1 : 5;
   return Number.isFinite(n) && n > 0 && n <= 20 ? Math.floor(n) : 5;
 }
 
 async function sleep(ms: number) {
   await new Promise((r) => setTimeout(r, ms));
+}
+
+async function visionStartPdfOcrViaRest(opts: {
+  apiKey: string;
+  sourceUri: string;
+  destinationUri: string;
+  pages: number[];
+}) {
+  const res = await fetch(`${VISION_FILES_ASYNC_REST_URL}?key=${encodeURIComponent(opts.apiKey)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      requests: [
+        {
+          inputConfig: { gcsSource: { uri: opts.sourceUri }, mimeType: "application/pdf" },
+          features: [{ type: "DOCUMENT_TEXT_DETECTION" }],
+          pages: opts.pages,
+          outputConfig: { gcsDestination: { uri: opts.destinationUri } },
+        },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Vision PDF REST start failed ${res.status}: ${body.slice(0, 500)}`);
+  }
+
+  const data = (await res.json()) as { name?: string };
+  if (!data.name) throw new Error("Vision PDF REST start failed: missing operation name");
+  return data.name;
+}
+
+async function visionWaitOperationViaRest(opts: { apiKey: string; operationName: string; timeoutMs: number }) {
+  const started = Date.now();
+  let delay = 500;
+  while (Date.now() - started < opts.timeoutMs) {
+    const url = `${VISION_OPERATIONS_REST_BASE}${encodeURIComponent(opts.operationName)}?key=${encodeURIComponent(opts.apiKey)}`;
+    const res = await fetch(url, { method: "GET" });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Vision op poll failed ${res.status}: ${body.slice(0, 500)}`);
+    }
+    const data = (await res.json()) as { done?: boolean; error?: { message?: string } };
+    if (data.error?.message) throw new Error(`Vision op failed: ${data.error.message}`);
+    if (data.done) return;
+    await sleep(delay);
+    delay = Math.min(2000, Math.floor(delay * 1.5));
+  }
+  throw new Error("Vision PDF OCR operation still running (timeout). Try again soon.");
 }
 
 export async function extractTextFromPdfScannedViaVision(buffer: Buffer, opts?: { docId?: string }) {
@@ -142,7 +195,6 @@ export async function extractTextFromPdfScannedViaVision(buffer: Buffer, opts?: 
 
   const { bucket, prefix } = parseGsUri(outUri);
   const storage = getStorage();
-  const client = getClient();
 
   const docId = opts?.docId ?? "doc";
   const stamp = Date.now();
@@ -161,22 +213,42 @@ export async function extractTextFromPdfScannedViaVision(buffer: Buffer, opts?: 
   const maxPages = getPdfMaxPages();
   const pages = Array.from({ length: maxPages }, (_, i) => i + 1);
 
-  // Types in @google-cloud/vision lag behind some request fields in practice (e.g. `pages`).
-  type AsyncBatchClient = { asyncBatchAnnotateFiles: (req: unknown) => Promise<unknown[]> };
-  const opTuple = await (client as unknown as AsyncBatchClient).asyncBatchAnnotateFiles({
-    requests: [
-      {
-        inputConfig: { gcsSource: { uri: sourceUri }, mimeType: "application/pdf" },
-        features: [{ type: "DOCUMENT_TEXT_DETECTION" }],
-        pages,
-        outputConfig: { gcsDestination: { uri: destination } },
-      },
-    ],
-  } as unknown);
-  const operation = opTuple[0] as { promise: () => Promise<unknown> };
+  // On Vercel/serverless, the Vision SDK (gRPC) is prone to "Cannot call write after a stream was destroyed".
+  // Prefer the Vision REST API when an API key is available.
+  const apiKey = process.env.GOOGLE_VISION_API_KEY?.trim();
+  if (apiKey) {
+    const opName = await visionStartPdfOcrViaRest({ apiKey, sourceUri, destinationUri: destination, pages });
+    const timeoutMs = process.env.VERCEL ? 8000 : 30_000;
+    try {
+      await visionWaitOperationViaRest({ apiKey, operationName: opName, timeoutMs });
+    } catch (e) {
+      // If polling timed out, the operation may still finish shortly.
+      // We'll try listing outputs anyway before failing later.
+      console.warn("[vision/pdf] operation not done yet; trying output listing", {
+        docId,
+        opName,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  } else {
+    const client = getClient();
+    // Types in @google-cloud/vision lag behind some request fields in practice (e.g. `pages`).
+    type AsyncBatchClient = { asyncBatchAnnotateFiles: (req: unknown) => Promise<unknown[]> };
+    const opTuple = await (client as unknown as AsyncBatchClient).asyncBatchAnnotateFiles({
+      requests: [
+        {
+          inputConfig: { gcsSource: { uri: sourceUri }, mimeType: "application/pdf" },
+          features: [{ type: "DOCUMENT_TEXT_DETECTION" }],
+          pages,
+          outputConfig: { gcsDestination: { uri: destination } },
+        },
+      ],
+    } as unknown);
+    const operation = opTuple[0] as { promise: () => Promise<unknown> };
 
-  // Wait for operation completion (Vision runs async for PDFs)
-  await operation.promise();
+    // Wait for operation completion (Vision runs async for PDFs)
+    await operation.promise();
+  }
 
   // The output is one or more JSON files under outPrefix.
   // We list and read them back, concatenate text across pages.
