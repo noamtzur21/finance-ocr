@@ -71,7 +71,12 @@ To use the passwords page (`/credentials`), set `CREDENTIALS_ENCRYPTION_KEY` in 
 
 1. **אם יש לך Supabase בתשלום:** הפעל גם גיבוי ב־[Dashboard](https://supabase.com/dashboard) → **Project Settings** → **Database** → **Backups** (PITR או Daily). **תרגול שחזור:** פעם בכמה חודשים שחזר לפרויקט זמני.  
 2. **גיבוי ל־R2 (חובה ב־Free):** תזמן קריאה יומית ל־`GET /api/cron/backup` (אימות: `CRON_SECRET` ב־query `?secret=<CRON_SECRET>` או header `Authorization: Bearer <CRON_SECRET>`). למשל [cron-job.org](https://cron-job.org): GET `https://<הדומיין>/api/cron/backup?secret=<CRON_SECRET>` פעם ביום. הקבצים נשמרים כ־`backups/db-snapshot-YYYYMMDDHHmmss.json` (תאריך+שעה כדי לא לדרוס גיבויים קודמים).  
-3. **אם מקבלים 307 redirect ל־/login:** זה כנראה **Vercel Deployment Protection** (הגנת פריסה). Vercel מפנה לפני שהאפליקציה רצה. **פתרון א:** ב־Vercel → Project → **Settings** → **Deployment Protection** – לכבות הגנה ל־Production (או רק ל־Preview אם רוצים להגן רק על preview). **פתרון ב:** להפעיל **Protection Bypass for Automation** (באותו מסך), להגדיר סוד, ולהוסיף לקריאת ה־cron את ה־header `x-vercel-protection-bypass: <הסוד>` או query `?x-vercel-protection-bypass=<הסוד>` (בנוסף ל־`?secret=<CRON_SECRET>`).  
+3. **תיקון 307 redirect ל־/login (חובה אם ה־cron לא עובד):** ה־307 מגיע מ־**Vercel Deployment Protection**, לא מהקוד. עשה את זה ב־Vercel:  
+   - היכנס ל־[https://vercel.com](https://vercel.com) → בחר את הפרויקט **finance-ocr-tan**.  
+   - תפריט צד: **Settings** → גלול ל־**Deployment Protection**.  
+   - **אם מופיע "Vercel Authentication" או "Password Protection"** עם מתג (toggle) ל־Production: **כבה** את המתג ל־Production (השאר Only Preview אם אתה רוצה להגן רק על דפי preview).  
+   - **או** השאר הגנה והפעל **Protection Bypass for Automation**: צור סוד (או העתק את הקיים), ובהופעת ה־cron הוסף ל־URL: `&x-vercel-protection-bypass=<הסוד>` (בנוסף ל־`?secret=<CRON_SECRET>`).  
+   - שמור, ואז הרץ שוב: `curl "https://finance-ocr-tan.vercel.app/api/cron/backup?secret=<CRON_SECRET>"` – אמור לקבל 200 ו־JSON עם `ok: true`.  
 4. **ניטור:** וודא שאתה מקבל התראה במייל אם ה־cron נכשל (ב־cron-job.org: "Failure notification" לכתובת המייל שלך).
 
 **Cloudflare R2 (אחסון קבלות) – תכלס**  
