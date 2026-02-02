@@ -2,6 +2,8 @@ import { prisma } from "@/app/lib/prisma";
 import { requireUser } from "@/app/lib/auth/server";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
+export const dynamic = "force-dynamic";
 
 function sse(data: unknown, event = "changed") {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -35,16 +37,20 @@ export async function GET(req: Request) {
     }
   };
 
+  const signal = req.signal;
+  signal.addEventListener("abort", () => {
+    streamClosed = true;
+  });
+
   let last = new Date();
   try {
     await write(sse({ ok: true }, "hello"));
   } catch {
     streamClosed = true;
   }
-
-  const signal = req.signal;
   try {
     while (!signal.aborted && !streamClosed) {
+      // Keep-alive: SSE comment every loop (4s) so Vercel/proxies don't close the connection
       await write(`: ping\n\n`);
 
       const candidates: Array<{ entity: Entity; id: string; at: Date; extra?: unknown }> = [];

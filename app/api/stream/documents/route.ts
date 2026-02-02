@@ -3,6 +3,8 @@ import { prisma } from "@/app/lib/prisma";
 import { requireUser } from "@/app/lib/auth/server";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
+export const dynamic = "force-dynamic";
 
 function sse(data: unknown, event = "message") {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -33,16 +35,19 @@ export async function GET(req: Request) {
     }
   };
 
+  const signal = req.signal;
+  signal.addEventListener("abort", () => {
+    streamClosed = true;
+  });
+
   // Start with current "watermark"
   let last = new Date();
 
   // Initial hello
   await write(sse({ ok: true, docId }, "hello"));
-
-  const signal = req.signal;
   try {
     while (!signal.aborted && !streamClosed) {
-      // Heartbeat so proxies keep the connection alive
+      // Keep-alive: SSE comment every 2s so Vercel/proxies don't close the connection
       await write(`: ping\n\n`);
 
       const where: { userId: string; id?: string; updatedAt: { gt: Date } } = docId

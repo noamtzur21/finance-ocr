@@ -103,8 +103,14 @@ async function extractTextFromImageViaRest(buffer: Buffer): Promise<string> {
 }
 
 export async function extractTextFromImage(buffer: Buffer) {
-  if (process.env.GOOGLE_VISION_API_KEY?.trim()) {
-    return extractTextFromImageViaRest(buffer);
+  const apiKey = process.env.GOOGLE_VISION_API_KEY?.trim();
+  if (apiKey) return extractTextFromImageViaRest(buffer);
+  // On Vercel/serverless the Vision SDK (gRPC) often throws "Cannot call write after a stream was destroyed".
+  // Require REST (API key) so OCR works reliably.
+  if (process.env.VERCEL) {
+    throw new Error(
+      "GOOGLE_VISION_API_KEY is required for image OCR on Vercel. Set it in Vercel → Project → Settings → Environment Variables and enable Cloud Vision API for the key.",
+    );
   }
   const client = getClient();
   const [result] = await client.textDetection({ image: { content: buffer } });

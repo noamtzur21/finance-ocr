@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { runOneOcrJob } from "@/app/lib/ocr/worker";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
+export const dynamic = "force-dynamic";
 
 function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
