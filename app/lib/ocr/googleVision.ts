@@ -216,6 +216,11 @@ export async function extractTextFromPdfScannedViaVision(buffer: Buffer, opts?: 
   // On Vercel/serverless, the Vision SDK (gRPC) is prone to "Cannot call write after a stream was destroyed".
   // Prefer the Vision REST API when an API key is available.
   const apiKey = process.env.GOOGLE_VISION_API_KEY?.trim();
+  if (!apiKey && process.env.VERCEL) {
+    throw new Error(
+      "GOOGLE_VISION_API_KEY is required for PDF OCR on Vercel (to avoid Vision SDK stream errors). Set it in Vercel → Project → Settings → Environment Variables.",
+    );
+  }
   if (apiKey) {
     const opName = await visionStartPdfOcrViaRest({ apiKey, sourceUri, destinationUri: destination, pages });
     const timeoutMs = process.env.VERCEL ? 8000 : 30_000;
