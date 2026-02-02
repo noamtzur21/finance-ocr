@@ -53,15 +53,21 @@ export async function runOneOcrJob() {
 
     // OCR
     let text = "";
-    if (doc.fileMime === "application/pdf" || doc.fileName.toLowerCase().endsWith(".pdf")) {
-      // `pdf-parse` can fail on some environments/PDFs (e.g. missing DOM polyfills).
-      // If it errors or returns empty text, fall back to Google Vision async PDF OCR.
-      try {
-        text = await extractTextFromPdf(bytes);
-      } catch {
-        text = "";
+    const isPdf = doc.fileMime === "application/pdf" || doc.fileName.toLowerCase().endsWith(".pdf");
+    const hasGcsPdfOcr = !!process.env.GOOGLE_VISION_OCR_GCS_OUTPUT_URI?.trim();
+
+    if (isPdf) {
+      // On Vercel/serverless, pdf-parse often fails (Path2D, streams). When GCS is set, use Vision only.
+      if (hasGcsPdfOcr) {
+        text = await extractTextFromPdfScannedViaVision(bytes, { docId: doc.id });
+      } else {
+        try {
+          text = await extractTextFromPdf(bytes);
+        } catch {
+          text = "";
+        }
+        if (!text.trim()) text = await extractTextFromPdfScannedViaVision(bytes, { docId: doc.id });
       }
-      if (!text.trim()) text = await extractTextFromPdfScannedViaVision(bytes, { docId: doc.id });
     } else {
       text = await extractTextFromImage(bytes);
     }
@@ -101,6 +107,7 @@ export async function runOneOcrJob() {
     return { ok: true, processed: true as const, jobId: job.id, docId: doc.id };
   } catch (e) {
     const err = e instanceof Error ? e.message : String(e);
+    console.error("[ocr/worker] job failed", { docId: job.docId, attempts: job.attempts, error: err });
     const attempts = job.attempts + 1;
     const willRetry = attempts < MAX_ATTEMPTS;
     await prisma.ocrJob.update({
