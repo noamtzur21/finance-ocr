@@ -7,6 +7,8 @@ const PUBLIC_PATH_PREFIXES = [
   "/signup",
   "/forgot-password",
   "/reset-password",
+  "/terms",
+  "/privacy",
   "/api/auth/login",
   "/api/auth/logout",
   "/api/auth/setup",
@@ -17,6 +19,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/api/auth/passkey",
   "/api/health",
   "/api/cron/ocr",
+  "/api/cron/backup",
   "/api/webhooks/incoming",
 ];
 
@@ -30,6 +33,10 @@ function isPublicPath(pathname: string) {
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  // Cron routes must be reachable without login (CRON_SECRET is checked in the route).
+  const isCronBackup = pathname === "/api/cron/backup" || pathname.startsWith("/api/cron/backup");
+  const isCronOcr = pathname === "/api/cron/ocr" || pathname.startsWith("/api/cron/ocr");
+  if (isCronBackup || isCronOcr) return NextResponse.next();
   if (isPublicPath(pathname)) return NextResponse.next();
 
   const token = req.cookies.get(SESSION_COOKIE_NAME)?.value;

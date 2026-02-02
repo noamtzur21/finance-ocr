@@ -62,6 +62,36 @@ To use the passwords page (`/credentials`), set `CREDENTIALS_ENCRYPTION_KEY` in 
 
 `openssl rand -base64 32`
 
+**אבטחה:** אוצר הסיסמאות מוצפן ב־**AES-256-GCM** (מפתח 32 בייט). המפתח נשמר **רק** במשתני סביבה (למשל ב־Vercel: Project → Settings → Environment Variables) ולא בתוך הקוד – כך משקיע או לקוח יכול לראות רמת אבטחה ברורה.
+
+### גיבויים, רישום עסקי ורגולציה (ישראל)
+
+**גיבויים (Supabase) – תכלס**  
+**למה גיבוי חיצוני:** ב־Supabase Free Plan אין גיבויים אוטומטיים של ה־Database. לכן יש במערכת גיבוי משלנו שרץ דרך Cron Job: הנתיב `GET /api/cron/backup` מייצא snapshot של הנתונים (תנועות, השקעות, תקציב, מסמכים, משתמשים וכו') לקובץ JSON ומעלה אותו ל־Cloudflare R2 בתיקייה `backups/`, כדי שלא תהיה תלויים רק ב־Supabase.  
+
+1. **אם יש לך Supabase בתשלום:** הפעל גם גיבוי ב־[Dashboard](https://supabase.com/dashboard) → **Project Settings** → **Database** → **Backups** (PITR או Daily). **תרגול שחזור:** פעם בכמה חודשים שחזר לפרויקט זמני.  
+2. **גיבוי ל־R2 (חובה ב־Free):** תזמן קריאה יומית ל־`GET /api/cron/backup` (אימות: `CRON_SECRET` ב־query `?secret=<CRON_SECRET>` או header `Authorization: Bearer <CRON_SECRET>`). למשל [cron-job.org](https://cron-job.org): GET `https://<הדומיין>/api/cron/backup?secret=<CRON_SECRET>` פעם ביום. הקבצים נשמרים כ־`backups/db-snapshot-YYYYMMDDHHmmss.json` (תאריך+שעה כדי לא לדרוס גיבויים קודמים).  
+3. **אם מקבלים 307 redirect ל־/login:** זה כנראה **Vercel Deployment Protection** (הגנת פריסה). Vercel מפנה לפני שהאפליקציה רצה. **פתרון א:** ב־Vercel → Project → **Settings** → **Deployment Protection** – לכבות הגנה ל־Production (או רק ל־Preview אם רוצים להגן רק על preview). **פתרון ב:** להפעיל **Protection Bypass for Automation** (באותו מסך), להגדיר סוד, ולהוסיף לקריאת ה־cron את ה־header `x-vercel-protection-bypass: <הסוד>` או query `?x-vercel-protection-bypass=<הסוד>` (בנוסף ל־`?secret=<CRON_SECRET>`).  
+4. **ניטור:** וודא שאתה מקבל התראה במייל אם ה־cron נכשל (ב־cron-job.org: "Failure notification" לכתובת המייל שלך).
+
+**Cloudflare R2 (אחסון קבלות) – תכלס**  
+1. הפעל **Object versioning:** [Cloudflare R2](https://dash.cloudflare.com/) → ה־bucket → **Settings** → **Object versioning** → Enable. כך מחיקה או דריסה לא מוחקות את הגרסה הקודמת ואפשר להחזיר תוך דקות.  
+2. **בדיקת סנכרון (רק בסביבת פיתוח):** מחק קובץ אחד ב־R2 (או דרך האפליקציה – מסמך בדב) ובדוק ב־Dashboard שב־"Object versioning" מופיעה גרסה קודמת ושאפשר לשחזר.
+
+**עוסק פטור / מורשה**  
+אם יש לך עוסק פטור (או מורשה): וודא שכל לקוח שמשלם חותם (דיגיטלית או פיזית) על תנאי השימוש הכוללים את סעיף הגבלת האחריות, ושהתשלומים נכנסים לחשבון בנק עסקי (או חשבון שמוגדר עבור העוסק) – כך מונעים "הרמת מסך" ותביעה אישית נגדך במקום נגד העסק.
+
+**רשם מאגרי מידע**  
+חובת רישום רלוונטית כשהמאגר מכיל מידע על רבים (סדר גודל אלפי רשומות / עשרות אלפי) או מידע רגיש (פיננסי, בריאות וכו'). עד שלא מוכרים בפועל ולפני שיש בסיס לקוחות רחב – אפשר לדחות. כשמגיעים ל־~100 לקוחות עסקיים או מעבר לכך, מומלץ לשלוח מייל קצר לעורך דין עם רשימת סוגי המידע שנשמרים (קבלות, אימיילים, טלפון, אוצר סיסמאות מוצפן) ולקבל חוות דעת סופית. [רשות הגנת הפרטיות](https://www.gov.il/he/departments/the_privacy_protection_authority).
+
+**Twilio / פרטיות בוואטסאפ**  
+הודעות ומסמכים שנשלחים דרך וואטסאפ עוברים דרך צד שלישי (Twilio, Meta). בתנאי השימוש ובמדיניות הפרטיות מובהר שהעלאת מסמכים דרך וואטסאפ כפופה גם למדיניות הפרטיות של Twilio ו־Meta – ראו דף תנאי השימוש ומדיניות הפרטיות במערכת (`/terms`, `/privacy`).
+
+**Compliance (סיכום)**  
+The system is architected to support Israeli business regulations (bookkeeping, tax reporting) and adheres to privacy standards regarding 3rd-party integrations (Twilio/Meta).
+
+---
+
 ### OCR (Google Vision)
 
 - **Recommended on Vercel:** Set `GOOGLE_VISION_API_KEY` (API key from Google Cloud Console → APIs & Services → Credentials). Vision is then called via REST and avoids the OpenSSL DECODER error. Enable "Cloud Vision API" for the key’s project.

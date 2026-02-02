@@ -139,7 +139,9 @@ export default function AppFrame(props: { children: React.ReactNode }) {
     return qs ? `${pathname}?${qs}` : pathname;
   }, [pathname, sp]);
 
+  const isTermsOrPrivacy = pathname === "/terms" || pathname === "/privacy";
   if (isAuthPage) return <>{props.children}</>;
+  if (isTermsOrPrivacy) return <>{props.children}</>;
 
   return (
     <div className="app-shell">
@@ -213,7 +215,23 @@ export default function AppFrame(props: { children: React.ReactNode }) {
         </aside>
 
         {/* Main */}
-        <main className="min-w-0">{props.children}</main>
+        <main className="min-w-0">
+          {props.children}
+          <footer className="mt-8 border-t border-zinc-200/70 pt-4 pb-2 text-center text-xs text-zinc-500">
+            <p className="mb-1">
+              המערכת היא כלי עזר לניהול בלבד. דיווח לרשויות המס והאחריות על הדוחות על אחריותך ורואה החשבון שלך.
+            </p>
+            <p>
+              <Link href="/terms" className="font-medium text-zinc-600 underline hover:text-zinc-800">
+                תנאי שימוש
+              </Link>
+              {" · "}
+              <Link href="/privacy" className="font-medium text-zinc-600 underline hover:text-zinc-800">
+                מדיניות פרטיות
+              </Link>
+            </p>
+          </footer>
+        </main>
       </div>
 
       {/* Drawer (mobile) */}
