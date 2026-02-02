@@ -61,6 +61,7 @@ export async function POST(req: Request) {
       email: emailLower,
       passwordHash,
       phoneNumber: phoneE164,
+      approved: true, // מנהל יוצר → מאושר מיד
     },
     select: { id: true, email: true, phoneNumber: true },
   });
@@ -70,4 +71,21 @@ export async function POST(req: Request) {
   });
 
   return NextResponse.json({ ok: true, user: { id: user.id, email: user.email, phoneNumber: user.phoneNumber } });
+}
+
+/** רשימת משתמשים – למנהל: ממתינים לאישור + כולם */
+export async function GET() {
+  const admin = await requireAdmin();
+  if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const users = await prisma.user.findMany({
+    where: { isAdmin: false },
+    select: { id: true, email: true, phoneNumber: true, approved: true, createdAt: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const pending = users.filter((u) => !u.approved);
+  const approved = users.filter((u) => u.approved);
+
+  return NextResponse.json({ pending, approved });
 }

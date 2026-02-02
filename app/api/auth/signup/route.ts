@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/app/lib/prisma";
 import { hashPassword } from "@/app/lib/auth/password";
-import { signSessionToken } from "@/app/lib/auth/session";
-import { setSessionCookie } from "@/app/lib/auth/cookies";
 
 function normalizePhoneE164(raw: string): string | null {
   const digits = raw.replace(/\D/g, "");
@@ -27,7 +25,7 @@ const DEFAULT_CATEGORIES = [
 const bodySchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
-  phoneNumber: z.string().max(20).optional(),
+  phoneNumber: z.string().min(9).max(20), // חובה – מקושר לחשבון לקבלת קבלות בוואטסאפ
 });
 
 export async function POST(req: Request) {
@@ -45,7 +43,8 @@ export async function POST(req: Request) {
 
   const { email, password, phoneNumber } = parsed.data;
   const emailLower = email.toLowerCase();
-  const phoneE164 = phoneNumber?.trim() ? normalizePhoneE164(phoneNumber.trim()) : null;
+  const phoneE164 = normalizePhoneE164(phoneNumber.trim());
+  if (!phoneE164) return NextResponse.json({ error: "Invalid phone number" }, { status: 400 });
 
   const dup = await prisma.user.findUnique({
     where: { email: emailLower },
@@ -53,13 +52,11 @@ export async function POST(req: Request) {
   });
   if (dup) return NextResponse.json({ error: "Email already registered" }, { status: 409 });
 
-  if (phoneE164) {
-    const phoneDup = await prisma.user.findFirst({
-      where: { phoneNumber: phoneE164 },
-      select: { id: true },
-    });
-    if (phoneDup) return NextResponse.json({ error: "Phone number already linked to another account" }, { status: 409 });
-  }
+  const phoneDup = await prisma.user.findFirst({
+    where: { phoneNumber: phoneE164 },
+    select: { id: true },
+  });
+  if (phoneDup) return NextResponse.json({ error: "Phone number already linked to another account" }, { status: 409 });
 
   const passwordHash = await hashPassword(password);
   const user = await prisma.user.create({
@@ -67,6 +64,7 @@ export async function POST(req: Request) {
       email: emailLower,
       passwordHash,
       phoneNumber: phoneE164,
+      approved: false, // ממתין לאישור מנהל
     },
     select: { id: true, email: true },
   });
@@ -75,8 +73,6 @@ export async function POST(req: Request) {
     data: DEFAULT_CATEGORIES.map((name) => ({ userId: user.id, name })),
   });
 
-  const token = await signSessionToken({ sub: user.id, email: user.email }, secret);
-  await setSessionCookie(token);
-
-  return NextResponse.json({ ok: true });
+  // לא מכניסים להתחברות – רק אחרי אישור מנהל
+  return NextResponse.json({ ok: true, pendingApproval: true });
 }

@@ -54,6 +54,8 @@ model User {
 
   // Admin: only admin can create new users (customers)
   isAdmin Boolean @default(false)
+  // Signup: new users wait for admin approval before they can login
+  approved Boolean @default(false)
 
   // Omnichannel: link incoming messages (e.g. WhatsApp via Twilio) to user
   phoneNumber            String? @unique // E.164 when you send from your phone (legacy)

@@ -48,8 +48,12 @@ export default function LoginForm() {
         body: JSON.stringify({ response }),
       });
       if (!verifyRes.ok) {
-        const body = (await verifyRes.json().catch(() => null)) as { error?: string } | null;
-        setError(body?.error ?? "התחברות עם Passkey נכשלה");
+        const body = (await verifyRes.json().catch(() => null)) as { error?: string; message?: string } | null;
+        if (verifyRes.status === 403 && body?.error === "pending_approval") {
+          setError(body?.message ?? "ממתין לאישור מנהל המערכת.");
+        } else {
+          setError(body?.error ?? "התחברות עם Passkey נכשלה");
+        }
         return;
       }
       router.replace("/dashboard");
@@ -78,8 +82,12 @@ export default function LoginForm() {
     });
     setLoading(false);
     if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as { error?: string } | null;
-      setError(body?.error ?? "שגיאת התחברות");
+      const body = (await res.json().catch(() => null)) as { error?: string; message?: string } | null;
+      if (res.status === 403 && body?.error === "pending_approval") {
+        setError(body?.message ?? "ממתין לאישור מנהל המערכת. תקבל הודעה כשהחשבון יאושר.");
+      } else {
+        setError(body?.error ?? body?.message ?? "שגיאת התחברות");
+      }
       return;
     }
     router.replace("/dashboard");

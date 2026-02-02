@@ -19,11 +19,21 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
 
   const email = parsed.data.email.toLowerCase();
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true, email: true, passwordHash: true, approved: true },
+  });
   if (!user) return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
 
   const ok = await verifyPassword(parsed.data.password, user.passwordHash);
   if (!ok) return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+
+  if (!user.approved) {
+    return NextResponse.json(
+      { error: "pending_approval", message: "ממתין לאישור מנהל המערכת. תקבל הודעה כשהחשבון יאושר." },
+      { status: 403 }
+    );
+  }
 
   const token = await signSessionToken({ sub: user.id, email: user.email }, secret);
   await setSessionCookie(token);

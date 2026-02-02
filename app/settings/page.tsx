@@ -45,11 +45,21 @@ export default async function SettingsPage() {
         />
       </div>
 
+      <div className="card p-4">
+        <h2 className="text-lg font-medium text-zinc-900">כניסה עם Face ID / Touch ID</h2>
+        <p className="mt-1 text-sm text-zinc-600">
+          ניתן להוסיף כניסה מהירה עם Face ID (טלפון) או Touch ID (מחשב) בעמוד אוצר סיסמאות.
+        </p>
+        <Link href="/credentials" className="btn btn-primary mt-3">
+          אוצר סיסמאות ו־Passkeys
+        </Link>
+      </div>
+
       {dbUser.isAdmin ? (
         <div className="card p-4">
           <h2 className="text-lg font-medium text-zinc-900">ניהול משתמשים</h2>
           <p className="mt-1 text-sm text-zinc-600">
-            צור משתמשים ללקוחות — אימייל, סיסמה ומספר טלפון. קבלות שיישלחו ממספר הטלפון יישמרו רק בחשבון של אותו לקוח.
+            אשר הרשמות חדשות או צור משתמשים ידנית — אימייל, סיסמה ומספר טלפון. קבלות שיישלחו ממספר הטלפון יישמרו בחשבון של אותו משתמש.
           </p>
           <Link href="/admin/users" className="btn btn-primary mt-3">
             ניהול משתמשים
