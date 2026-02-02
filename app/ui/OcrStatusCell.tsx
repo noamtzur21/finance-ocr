@@ -11,7 +11,7 @@ function clsStatus(status: Status) {
   return "text-zinc-700";
 }
 
-export default function OcrStatusCell(props: { docId: string; status: Status }) {
+export default function OcrStatusCell(props: { docId: string; status: Status; errorMessage?: string | null }) {
   const router = useRouter();
   const [status, setStatus] = useState<Status>(props.status);
   const [busy, setBusy] = useState(false);
@@ -46,9 +46,16 @@ export default function OcrStatusCell(props: { docId: string; status: Status }) 
       ) : null}
 
       {status === "failed" ? (
-        <button type="button" className="btn" title="נסה שוב OCR" disabled={busy} onClick={() => void retry()}>
-          {busy ? "…" : "↻"}
-        </button>
+        <span className="flex flex-col items-start gap-0.5">
+          {props.errorMessage ? (
+            <span className="text-[10px] text-red-600 max-w-[180px] truncate" title={props.errorMessage}>
+              {props.errorMessage}
+            </span>
+          ) : null}
+          <button type="button" className="btn" title="נסה שוב OCR" disabled={busy} onClick={() => void retry()}>
+            {busy ? "…" : "↻"}
+          </button>
+        </span>
       ) : null}
     </div>
   );

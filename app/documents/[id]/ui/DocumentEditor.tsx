@@ -208,6 +208,14 @@ export default function DocumentEditor({ doc, categories, defaultBackHref, vatPe
 
           {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
 
+          {doc.ocrStatus === "failed" && doc.ocrText ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              <strong>OCR נכשל:</strong>{" "}
+              {doc.ocrText.startsWith("OCR job failed:") ? doc.ocrText.slice("OCR job failed:".length).trim().slice(0, 400) : doc.ocrText.slice(0, 400)}
+              {doc.ocrText.length > 400 ? "…" : ""}
+            </div>
+          ) : null}
+
           <button
             onClick={save}
             disabled={saving || deleting}

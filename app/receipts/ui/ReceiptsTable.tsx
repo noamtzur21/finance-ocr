@@ -10,7 +10,7 @@ export default async function ReceiptsTable(props: { userId: string; showAll: bo
       where,
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       take: props.showAll ? 200 : 50,
-      select: { id: true, date: true, vendor: true, amount: true, currency: true, description: true, ocrStatus: true },
+      select: { id: true, date: true, vendor: true, amount: true, currency: true, description: true, ocrStatus: true, ocrText: true },
     }),
     prisma.document.aggregate({
       where,
@@ -62,7 +62,7 @@ export default async function ReceiptsTable(props: { userId: string; showAll: bo
                     {d.amount.toString()} <span className="text-xs text-zinc-600">{d.currency}</span>
                   </td>
                   <td className="px-3 py-2">
-                    <OcrStatusCell docId={d.id} status={d.ocrStatus} />
+                    <OcrStatusCell docId={d.id} status={d.ocrStatus} errorMessage={d.ocrStatus === "failed" && d.ocrText ? (d.ocrText.startsWith("OCR job failed:") ? d.ocrText.slice("OCR job failed:".length).trim().slice(0, 120) : d.ocrText.slice(0, 120)) : null} />
                   </td>
                   <td className="px-3 py-2">
                     <Link className="btn" href={`/documents/${d.id}?from=receipts`}>
