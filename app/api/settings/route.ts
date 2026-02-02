@@ -17,6 +17,7 @@ const patchSchema = z.object({
   taxId: z.string().max(20).optional(),
   vatPercent: z.string().optional(),
   phoneNumber: z.string().max(20).optional(),
+  whatsappIncomingNumber: z.string().max(25).optional(),
 });
 
 export async function PATCH(req: Request) {
@@ -27,8 +28,9 @@ export async function PATCH(req: Request) {
   const parsed = patchSchema.safeParse(json);
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
 
-  const { businessType, businessName, taxId, vatPercent, phoneNumber } = parsed.data;
+  const { businessType, businessName, taxId, vatPercent, phoneNumber, whatsappIncomingNumber } = parsed.data;
   const phoneE164 = phoneNumber?.trim() ? normalizePhoneE164(phoneNumber.trim()) : null;
+  const incomingE164 = whatsappIncomingNumber?.trim() ? normalizePhoneE164(whatsappIncomingNumber.trim()) : null;
 
   await prisma.user.update({
     where: { id: user.id },
@@ -38,6 +40,7 @@ export async function PATCH(req: Request) {
       taxId: taxId || null,
       vatPercent: vatPercent ? parseFloat(vatPercent) : undefined,
       phoneNumber: phoneE164,
+      whatsappIncomingNumber: incomingE164,
     },
   });
 

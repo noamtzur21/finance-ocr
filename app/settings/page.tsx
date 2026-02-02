@@ -17,6 +17,7 @@ export default async function SettingsPage() {
       taxId: true,
       vatPercent: true,
       phoneNumber: true,
+      whatsappIncomingNumber: true,
       isAdmin: true,
     },
   });
@@ -39,6 +40,7 @@ export default async function SettingsPage() {
             taxId: dbUser.taxId ?? "",
             vatPercent: dbUser.vatPercent.toString(),
             phoneNumber: dbUser.phoneNumber ?? "",
+            whatsappIncomingNumber: dbUser.whatsappIncomingNumber ?? "",
           }}
         />
       </div>

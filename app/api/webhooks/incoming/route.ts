@@ -77,23 +77,42 @@ export async function POST(req: Request) {
   // Debug: log so you can see in Vercel/host logs if webhook received and what Twilio sent
   console.log("[webhooks/incoming] From=%s NumMedia=%s MediaUrl0=%s", from, numMedia, mediaUrl ? "yes" : "no");
 
-  const phone = normalizePhone(from);
-  if (!phone) {
-    return twimlMessage("לא זוהה מספר. הוסף את המספר שלך בהגדרות Finance OCR.");
+  // Who receives this message (your WhatsApp Business / Twilio number). When a customer sends a receipt here, the doc goes to the user who owns this number.
+  const toRaw = body.To ?? body.to ?? "";
+  const toNormalized = normalizePhone(toRaw);
+
+  let user: { id: string } | null = null;
+
+  if (toNormalized) {
+    user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { whatsappIncomingNumber: toNormalized },
+          { whatsappIncomingNumber: `+${toNormalized}` },
+        ],
+      },
+      select: { id: true },
+    });
   }
 
-  const user = await prisma.user.findFirst({
-    where: {
-      OR: [
-        { phoneNumber: phone },
-        { phoneNumber: `+${phone}` },
-      ],
-    },
-    select: { id: true },
-  });
+  // Fallback: sender's number is in settings (you send from your own phone → doc goes to you).
+  if (!user) {
+    const fromNormalized = normalizePhone(from);
+    if (fromNormalized) {
+      user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { phoneNumber: fromNormalized },
+            { phoneNumber: `+${fromNormalized}` },
+          ],
+        },
+        select: { id: true },
+      });
+    }
+  }
 
   if (!user) {
-    return twimlMessage("המספר לא רשום במערכת. היכנס ל-Finance OCR והגדר את מספר הטלפון בהגדרות.");
+    return twimlMessage("לא נמצא חשבון למספר הזה. בהגדרות הכנס את מספר ה-WhatsApp העסקי שלך (מספר Twilio) תחת \"מספר לקבלת קבלות\" – אז כשהלקוח שולח קבלה למספר הזה, היא תיכנס אוטומטית לאתר.");
   }
 
   if (numMedia === 0 || !mediaUrl) {

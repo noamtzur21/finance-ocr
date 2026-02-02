@@ -12,6 +12,7 @@ type SettingsProps = {
     taxId: string;
     vatPercent: string;
     phoneNumber: string;
+    whatsappIncomingNumber: string;
   };
 };
 
@@ -95,7 +96,21 @@ export default function SettingsClient({ initial }: SettingsProps) {
       )}
 
       <div>
-        <label className="text-sm font-medium text-zinc-900">מספר טלפון (לשליחת קבלות בוואטסאפ)</label>
+        <label className="text-sm font-medium text-zinc-900">מספר WhatsApp לקבלת קבלות (המספר של Twilio)</label>
+        <input
+          className="field mt-1 w-full"
+          type="tel"
+          value={form.whatsappIncomingNumber}
+          onChange={(e) => setDraft({ ...form, whatsappIncomingNumber: e.target.value })}
+          placeholder="למשל: 972501234567"
+        />
+        <p className="mt-1 text-xs text-zinc-500">
+          כשהלקוח שולח תמונת קבלה למספר הזה (ה־WhatsApp העסקי שלך ב־Twilio), הקבלה נשמרת אוטומטית באתר שלך. הלקוח לא נכנס לאתר בכלל.
+        </p>
+      </div>
+
+      <div>
+        <label className="text-sm font-medium text-zinc-900">מספר הטלפון שלי (שליחה ממני)</label>
         <input
           className="field mt-1 w-full"
           type="tel"
@@ -104,7 +119,7 @@ export default function SettingsClient({ initial }: SettingsProps) {
           placeholder="050-1234567"
         />
         <p className="mt-1 text-xs text-zinc-500">
-          המספר שתשלח ממנו תמונות קבלות יישמר אוטומטית בחשבון שלך. ניתן לשנות או להסיר את המספר בכל עת.
+          אם גם אתה שולח קבלות מהטלפון שלך – המספר שתשלח ממנו יזוהה ויישמר בחשבון שלך.
         </p>
       </div>
 
