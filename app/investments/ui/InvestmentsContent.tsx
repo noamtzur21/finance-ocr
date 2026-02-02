@@ -1,68 +1,7 @@
 import { prisma } from "@/app/lib/prisma";
 import InvestmentsClient from "./InvestmentsClient";
 
-async function ensureDefaultAccounts(userId: string) {
-  const btbNotes = [
-    "דמי ניהול: 0.7% שנתי מגובה התיק.",
-    "דמי הפקדה: 1% מכל הפקדה (יורד בפריסה על פני 24 חודשים).",
-    "דמי ניהול נוספים: 0.15% שנתי — “קופת ערבות הדדית” (BTB).",
-    "מיסוי על רווחים: 15%.",
-  ].join("\n");
-
-  const migdalNotes = [
-    "דמי ניהול מהפקדה: 0%.",
-    "דמי ניהול מחיסכון: 0.7% שנתי.",
-    "מיסוי על משיכה (כפי שציינת): 35%.",
-  ].join("\n");
-
-  await prisma.investmentAccount.upsert({
-    where: { userId_slug: { userId, slug: "btb" } },
-    update: {
-      name: "BTB",
-      type: "btb",
-      provider: "BTB",
-      strategy: "B-match",
-      currency: "ILS",
-      notes: btbNotes,
-    },
-    create: {
-      userId,
-      slug: "btb",
-      name: "BTB",
-      type: "btb",
-      provider: "BTB",
-      strategy: "B-match",
-      currency: "ILS",
-      notes: btbNotes,
-    },
-  });
-
-  await prisma.investmentAccount.upsert({
-    where: { userId_slug: { userId, slug: "migdal-gemel-sp500" } },
-    update: {
-      name: "קופת גמל (S&P 500)",
-      type: "gemel",
-      provider: "מגדל",
-      strategy: "עוקב מדד S&P 500",
-      currency: "ILS",
-      notes: migdalNotes,
-    },
-    create: {
-      userId,
-      slug: "migdal-gemel-sp500",
-      name: "קופת גמל (S&P 500)",
-      type: "gemel",
-      provider: "מגדל",
-      strategy: "עוקב מדד S&P 500",
-      currency: "ILS",
-      notes: migdalNotes,
-    },
-  });
-}
-
 export default async function InvestmentsContent(props: { userId: string }) {
-  await ensureDefaultAccounts(props.userId);
-
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: currentYear - 2024 + 1 }, (_, i) => 2024 + i);
 

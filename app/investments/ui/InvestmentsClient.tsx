@@ -199,6 +199,13 @@ export default function InvestmentsClient(props: { years: number[]; initial: Acc
         </div>
       </div>
 
+      {items.length === 0 ? (
+        <div className="card p-6 text-center text-zinc-600">
+          <p className="font-medium">אין חשבונות השקעות</p>
+          <p className="mt-1 text-sm">אם יש לך חשבונות (קופת גמל, BTB וכו') – צור קשר להגדרה.</p>
+        </div>
+      ) : null}
+
       {items.map((acc) => {
         const totalDeposits = props.years.reduce((s, y) => s + sumForYear(acc, y, "deposit"), 0);
         const totalWithdrawals = props.years.reduce((s, y) => s + sumForYear(acc, y, "withdrawal"), 0);

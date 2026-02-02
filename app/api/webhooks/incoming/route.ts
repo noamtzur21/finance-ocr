@@ -77,33 +77,32 @@ export async function POST(req: Request) {
   // Debug: log so you can see in Vercel/host logs if webhook received and what Twilio sent
   console.log("[webhooks/incoming] From=%s NumMedia=%s MediaUrl0=%s", from, numMedia, mediaUrl ? "yes" : "no");
 
-  // Who receives this message (your WhatsApp Business / Twilio number). When a customer sends a receipt here, the doc goes to the user who owns this number.
-  const toRaw = body.To ?? body.to ?? "";
-  const toNormalized = normalizePhone(toRaw);
-
+  // 1) קודם לפי השולח (From): כשמשתמש שולח קבלה מהמספר שלו, היא נכנסת לחשבון שלו.
+  const fromNormalized = normalizePhone(from);
   let user: { id: string } | null = null;
 
-  if (toNormalized) {
+  if (fromNormalized) {
     user = await prisma.user.findFirst({
       where: {
         OR: [
-          { whatsappIncomingNumber: toNormalized },
-          { whatsappIncomingNumber: `+${toNormalized}` },
+          { phoneNumber: fromNormalized },
+          { phoneNumber: `+${fromNormalized}` },
         ],
       },
       select: { id: true },
     });
   }
 
-  // Fallback: sender's number is in settings (you send from your own phone → doc goes to you).
+  // 2) אם לא מצאנו לפי השולח – לפי המספר שמקבל (To): כשהלקוח שולח למספר העסקי, נכנס למי שהגדיר את המספר הזה ב"מספר לקבלת קבלות".
   if (!user) {
-    const fromNormalized = normalizePhone(from);
-    if (fromNormalized) {
+    const toRaw = body.To ?? body.to ?? "";
+    const toNormalized = normalizePhone(toRaw);
+    if (toNormalized) {
       user = await prisma.user.findFirst({
         where: {
           OR: [
-            { phoneNumber: fromNormalized },
-            { phoneNumber: `+${fromNormalized}` },
+            { whatsappIncomingNumber: toNormalized },
+            { whatsappIncomingNumber: `+${toNormalized}` },
           ],
         },
         select: { id: true },
@@ -112,7 +111,7 @@ export async function POST(req: Request) {
   }
 
   if (!user) {
-    return twimlMessage("לא נמצא חשבון למספר הזה. בהגדרות הכנס את מספר ה-WhatsApp העסקי שלך (מספר Twilio) תחת \"מספר לקבלת קבלות\" – אז כשהלקוח שולח קבלה למספר הזה, היא תיכנס אוטומטית לאתר.");
+    return twimlMessage("לא נמצא חשבון. אם אתה משתמש – הכנס את מספר הטלפון שלך בהגדרות (המספר שממנו אתה שולח). אם אתה לקוח – שלח למספר העסקי שהתקבל ממך.");
   }
 
   if (numMedia === 0 || !mediaUrl) {
