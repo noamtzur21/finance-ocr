@@ -135,67 +135,16 @@ export default function DocumentEditor({ doc, categories, defaultBackHref, vatPe
             />
           </div>
 
-          <div>
-            <label className="text-sm font-medium">קטגוריה</label>
-            <select
-              className="field mt-1 w-full"
-              value={form.categoryId ?? ""}
-              onChange={(e) => setForm({ ...form, categoryId: e.target.value || null })}
-            >
-              <option value="">— ללא קטגוריה —</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="border-t border-zinc-100 pt-4 mt-4 grid gap-4 sm:grid-cols-3">
-            <div>
-              <label className="text-sm font-medium text-emerald-700 font-bold">סה&quot;כ (₪)</label>
-              <input
-                type="number"
-                step="0.01"
-                className="field mt-1 w-full border-emerald-200 focus:ring-emerald-500/20"
-                value={form.amount}
-                onChange={(e) => updateAmounts(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-zinc-600">מתוכו מע&quot;מ</label>
-              <input
-                type="number"
-                step="0.01"
-                className="field mt-1 w-full bg-zinc-50"
-                value={form.vatAmount}
-                onChange={(e) => setForm({ ...form, vatAmount: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-zinc-600">לפני מע&quot;מ</label>
-              <input
-                type="number"
-                step="0.01"
-                className="field mt-1 w-full bg-zinc-50"
-                value={form.preVatAmount}
-                onChange={(e) => setForm({ ...form, preVatAmount: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium">הוצאה מוכרת (%)</label>
-            <div className="flex items-center gap-3 mt-1">
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="25"
-                className="flex-1"
-                value={form.isRecognized}
-                onChange={(e) => setForm({ ...form, isRecognized: e.target.value })}
-              />
-              <span className="text-sm font-semibold w-12 text-center">{form.isRecognized}%</span>
-            </div>
+          <div className="border-t border-zinc-100 pt-4 mt-4">
+            <label className="text-sm font-medium text-emerald-700 font-bold">סה&quot;כ (₪)</label>
+            <input
+              type="number"
+              step="0.01"
+              className="field mt-1 w-full border-emerald-200 focus:ring-emerald-500/20"
+              value={form.amount}
+              onChange={(e) => updateAmounts(e.target.value)}
+            />
+            <p className="text-xs text-zinc-500 mt-1">מע&quot;מ ולפני מע&quot;מ מחושבים אוטומטית לפי ההגדרות</p>
           </div>
 
           <div>

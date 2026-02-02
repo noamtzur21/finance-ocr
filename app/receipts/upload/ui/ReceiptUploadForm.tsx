@@ -22,7 +22,24 @@ export default function ReceiptUploadForm() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!file) return;
+    if (!file) {
+      setError("נא לבחור קובץ");
+      return;
+    }
+    const v = vendor.trim();
+    if (!v) {
+      setError("שם בית העסק חובה");
+      return;
+    }
+    if (!date) {
+      setError("תאריך חובה");
+      return;
+    }
+    const a = parseFloat(amount);
+    if (!amount.trim() || Number.isNaN(a) || a <= 0) {
+      setError("סכום כסף חובה (מעל 0)");
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -32,10 +49,10 @@ export default function ReceiptUploadForm() {
       "meta",
       JSON.stringify({
         type: "expense",
-        vendor: vendor || null,
-        date: date || null,
-        amount: amount || null,
-        description: description || null,
+        vendor: v,
+        date,
+        amount: String(a),
+        description: description.trim() || null,
       }),
     );
 
@@ -97,29 +114,29 @@ export default function ReceiptUploadForm() {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="text-sm font-medium">שם בית העסק</label>
-          <input className="field mt-1" value={vendor} onChange={(e) => setVendor(e.target.value)} placeholder="למשל: סופר פארם" />
+          <label className="text-sm font-medium">שם בית העסק <span className="text-red-500">*</span></label>
+          <input className="field mt-1" value={vendor} onChange={(e) => setVendor(e.target.value)} placeholder="למשל: סופר פארם" required />
         </div>
         <div>
-          <label className="text-sm font-medium">תאריך</label>
-          <input className="field mt-1" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <label className="text-sm font-medium">תאריך <span className="text-red-500">*</span></label>
+          <input className="field mt-1" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
         </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="text-sm font-medium">סכום (אופציונלי)</label>
-          <input className="field mt-1" value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" placeholder="למשל 89.90" />
+          <label className="text-sm font-medium">סכום (₪) <span className="text-red-500">*</span></label>
+          <input className="field mt-1" value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" placeholder="למשל 89.90" required />
         </div>
         <div>
-          <label className="text-sm font-medium">תיאור קצר (אופציונלי)</label>
+          <label className="text-sm font-medium">תיאור (אופציונלי)</label>
           <input className="field mt-1" value={description} onChange={(e) => setDescription(e.target.value)} placeholder='למשל: "מצלמה לעסק"' />
         </div>
       </div>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-      <button disabled={!file || loading} className="btn btn-primary disabled:opacity-60" type="submit">
+      <button disabled={!file || !vendor.trim() || !date || !amount.trim() || loading} className="btn btn-primary disabled:opacity-60" type="submit">
         {loading ? "מעלה..." : "העלה"}
       </button>
     </form>

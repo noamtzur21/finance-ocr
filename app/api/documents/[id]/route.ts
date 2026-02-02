@@ -4,10 +4,15 @@ import { prisma } from "@/app/lib/prisma";
 import { requireUser } from "@/app/lib/auth/server";
 import { deleteObject, getObjectReadUrl } from "@/app/lib/r2/objects";
 
+const numOrStr = z.union([z.string(), z.number()]).transform((v) => (typeof v === "string" ? parseFloat(v) : v));
+
 const updateSchema = z.object({
   type: z.enum(["expense", "income"]).optional(),
   date: z.string().optional(), // YYYY-MM-DD
-  amount: z.string().optional(),
+  amount: numOrStr.optional(),
+  vatAmount: numOrStr.optional(),
+  preVatAmount: numOrStr.optional(),
+  isRecognized: numOrStr.optional(),
   vendor: z.string().optional(),
   categoryId: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
@@ -63,12 +68,21 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const parsed = updateSchema.safeParse(json);
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
 
-  const data: Record<string, unknown> = { ...parsed.data };
-  if (parsed.data.date) {
+  const data: Record<string, unknown> = {};
+  if (parsed.data.type !== undefined) data.type = parsed.data.type;
+  if (parsed.data.date !== undefined) {
     const dt = parseDateOnly(parsed.data.date);
     if (!dt) return NextResponse.json({ error: "Invalid date" }, { status: 400 });
     data.date = dt;
   }
+  if (parsed.data.amount !== undefined) data.amount = Number(parsed.data.amount);
+  if (parsed.data.vatAmount !== undefined) data.vatAmount = Number(parsed.data.vatAmount);
+  if (parsed.data.preVatAmount !== undefined) data.preVatAmount = Number(parsed.data.preVatAmount);
+  if (parsed.data.isRecognized !== undefined) data.isRecognized = Number(parsed.data.isRecognized);
+  if (parsed.data.vendor !== undefined) data.vendor = parsed.data.vendor;
+  if (parsed.data.categoryId !== undefined) data.categoryId = parsed.data.categoryId?.trim() || null;
+  if (parsed.data.description !== undefined) data.description = parsed.data.description;
+  if (parsed.data.docNumber !== undefined) data.docNumber = parsed.data.docNumber;
 
   const updated = await prisma.document.updateMany({
     where: { id, userId: user.id },

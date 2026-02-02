@@ -51,12 +51,20 @@ export async function POST(req: Request) {
   const fileKey = `${user.id}/${Date.now()}-${file.name}`;
   await putObject({ key: fileKey, body: buffer, contentType: file.type });
 
+  const total = parseFloat(meta.amount || "0");
+  const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { vatPercent: true } });
+  const vatPct = dbUser?.vatPercent.toNumber() ?? 17;
+  const vatAmount = total * (vatPct / (100 + vatPct));
+  const preVatAmount = total - vatAmount;
+
   const doc = await prisma.document.create({
     data: {
       userId: user.id,
       type: meta.type,
       date: meta.date ? new Date(meta.date) : new Date(),
-      amount: parseFloat(meta.amount || "0"),
+      amount: total,
+      vatAmount: Math.round(vatAmount * 100) / 100,
+      preVatAmount: Math.round(preVatAmount * 100) / 100,
       vendor: meta.vendor || "Unknown",
       categoryId: meta.categoryId || null,
       description: meta.description || null,
