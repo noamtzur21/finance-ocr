@@ -3,6 +3,7 @@ import { getObjectBytes } from "@/app/lib/r2/objects";
 import { extractTextFromImage, extractTextFromPdfScannedViaVision } from "@/app/lib/ocr/googleVision";
 import { extractTextFromPdf } from "@/app/lib/ocr/pdfText";
 import { parseReceiptText } from "@/app/lib/ocr/parse";
+import { getUsdIlsRate } from "@/app/lib/fx/usdIlsRate";
 
 const MAX_ATTEMPTS = 3;
 
@@ -89,15 +90,35 @@ export async function runOneOcrJob() {
 
     const parsed = parseReceiptText(text);
 
-    const isVendorPlaceholder = !doc.vendor || doc.vendor === "—";
-    const isAmountZero = Number(doc.amount.toString()) === 0;
+    const vendorNorm = (doc.vendor ?? "").trim().toLowerCase();
+    const isVendorPlaceholder = !vendorNorm || vendorNorm === "—" || vendorNorm === "unknown" || vendorNorm === "לא ידוע";
+
+    const currentAmount = Number(doc.amount.toString());
+    const isAmountZero = currentAmount === 0;
     const isDocNumberEmpty = !doc.docNumber;
 
     const sameDayLocal = (a: Date, b: Date) =>
       a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
     const isDateDefault = sameDayLocal(doc.date, doc.createdAt);
-    const descriptionEmpty = !doc.description || doc.description.trim() === "";
-    const shortDescription = parsed.vendor ? `קבלה מ-${parsed.vendor}` : "קבלה (נסרק אוטומטית)";
+
+    // Currency handling:
+    // - If OCR text looks like USD, store amount in ILS (business bookkeeping) and keep currency as ILS.
+    // - We'll still show original "(19$)" in the UI by re-parsing the OCR text.
+    const parsedAmountNum = parsed.amount ? Number(parsed.amount) : null;
+    const amountLooksAutoFilled =
+      parsedAmountNum !== null && Number.isFinite(parsedAmountNum) && Math.abs(currentAmount - parsedAmountNum) < 0.01;
+    const shouldOverwriteAmount = isAmountZero || amountLooksAutoFilled;
+    let amountToStore: string | null = parsed.amount ?? null;
+    let currencyToStore: string | null = parsed.currency ?? null;
+
+    if (parsed.currency === "USD" && parsedAmountNum !== null && Number.isFinite(parsedAmountNum) && shouldOverwriteAmount) {
+      const rate = await getUsdIlsRate();
+      const ils = parsedAmountNum * rate;
+      if (Number.isFinite(ils)) {
+        amountToStore = ils.toFixed(2);
+        currencyToStore = "ILS";
+      }
+    }
 
     await prisma.document.update({
       where: { id: doc.id },
@@ -106,11 +127,10 @@ export async function runOneOcrJob() {
         ocrText: text.slice(0, 50_000),
         ocrConfidence: parsed.confidence,
         ...(parsed.date && isDateDefault ? { date: parsed.date } : {}),
-        ...(parsed.amount && isAmountZero ? { amount: parsed.amount } : {}),
+        ...(amountToStore && shouldOverwriteAmount ? { amount: amountToStore } : {}),
         ...(parsed.vendor && isVendorPlaceholder ? { vendor: parsed.vendor } : {}),
         ...(parsed.docNumber && isDocNumberEmpty ? { docNumber: parsed.docNumber } : {}),
-        ...(parsed.currency ? { currency: parsed.currency } : {}),
-        ...(descriptionEmpty ? { description: shortDescription } : {}),
+        ...(currencyToStore ? { currency: currencyToStore } : {}),
       },
     });
 

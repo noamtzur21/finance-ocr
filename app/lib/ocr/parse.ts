@@ -25,6 +25,12 @@ function parseCurrency(text: string): "ILS" | "USD" | "EUR" | null {
   if (/[₪]|ש["״׳']?ח|nis\b|ils\b/.test(t)) return "ILS";
   if (/[$]|usd\b/.test(t)) return "USD";
   if (/[€]|eur\b/.test(t)) return "EUR";
+  // Heuristic: English invoices with no explicit symbol are often USD.
+  // (e.g. "Invoice", "Bill to", US-style address)
+  const looksEnglish = !/[\u0590-\u05FF]/.test(t) && (t.match(/[a-z]/g) ?? []).length > 40;
+  const invoiceHints = /\b(invoice|bill\s*to|date\s*due|date\s*of\s*issue|amount\s*due|balance\s*due)\b/i.test(t);
+  const usAddressHints = /\b(ave|avenue|street|st\.|road|rd\.|suite|ste\.|zip|university)\b/i.test(t);
+  if (looksEnglish && invoiceHints && usAddressHints) return "USD";
   return null;
 }
 

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import LiveRefresh from "@/app/ui/LiveRefresh";
+import { parseReceiptText } from "@/app/lib/ocr/parse";
 
 type Category = { id: string; name: string };
 
@@ -41,6 +42,15 @@ export default function DocumentEditor({ doc, categories, defaultBackHref, vatPe
   const [error, setError] = useState<string | null>(null);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [previewFailed, setPreviewFailed] = useState(false);
+
+  const ocrParsed = useMemo(() => {
+    if (!doc.ocrText) return null;
+    try {
+      return parseReceiptText(doc.ocrText);
+    } catch {
+      return null;
+    }
+  }, [doc.ocrText]);
 
   // Auto-calculate VAT logic
   const updateAmounts = (total: string) => {
@@ -148,6 +158,11 @@ export default function DocumentEditor({ doc, categories, defaultBackHref, vatPe
               value={form.amount}
               onChange={(e) => updateAmounts(e.target.value)}
             />
+            {ocrParsed?.currency === "USD" && ocrParsed.amount ? (
+              <p className="text-xs text-zinc-500 mt-1">
+                {Number.isFinite(Number(form.amount)) ? `${Number(form.amount).toFixed(2)} ₪` : `${form.amount} ₪`} ({ocrParsed.amount}$)
+              </p>
+            ) : null}
             <p className="text-xs text-zinc-500 mt-1">לפני מע״מ = סה״כ ÷ (1 + אחוז מע״מ/100). אחוז המע״מ בהגדרות (למשל 17% או 18%).</p>
           </div>
 
