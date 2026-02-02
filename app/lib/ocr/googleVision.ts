@@ -24,8 +24,12 @@ function getGoogleCreds() {
       project_id?: string;
       projectId?: string;
     };
-    const client_email = parsed.client_email;
-    const private_key = parsed.private_key?.replace(/\\n/g, "\n");
+    const client_email = parsed.client_email?.trim();
+    // Normalize PEM: escaped \n, \r\n, and trim so OpenSSL 3 (Node 18+) accepts it
+    let private_key = parsed.private_key
+      ?.replace(/\\n/g, "\n")
+      ?.replace(/\r\n/g, "\n")
+      ?.trim();
     if (!client_email || !private_key) {
       cachedCreds = null;
       return cachedCreds;
