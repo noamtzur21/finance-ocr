@@ -2,6 +2,7 @@ import { ImageAnnotatorClient } from "@google-cloud/vision";
 import { Storage } from "@google-cloud/storage";
 
 const VISION_REST_URL = "https://vision.googleapis.com/v1/images:annotate";
+const VISION_FILES_ANNOTATE_REST_URL = "https://vision.googleapis.com/v1/files:annotate";
 const VISION_FILES_ASYNC_REST_URL = "https://vision.googleapis.com/v1/files:asyncBatchAnnotate";
 const VISION_OPERATIONS_REST_BASE = "https://vision.googleapis.com/v1/";
 
@@ -104,6 +105,48 @@ async function extractTextFromImageViaRest(buffer: Buffer): Promise<string> {
   return first?.fullTextAnnotation?.text ?? "";
 }
 
+async function extractTextFromPdfViaFilesAnnotateRest(buffer: Buffer, pages: number[]): Promise<string> {
+  const apiKey = process.env.GOOGLE_VISION_API_KEY?.trim();
+  if (!apiKey) throw new Error("GOOGLE_VISION_API_KEY is not set");
+
+  const res = await fetch(`${VISION_FILES_ANNOTATE_REST_URL}?key=${encodeURIComponent(apiKey)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      requests: [
+        {
+          inputConfig: { content: buffer.toString("base64"), mimeType: "application/pdf" },
+          features: [{ type: "DOCUMENT_TEXT_DETECTION" }],
+          pages,
+        },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const errBody = await res.text();
+    throw new Error(`Vision PDF REST failed ${res.status}: ${errBody.slice(0, 1000)}`);
+  }
+
+  const data = (await res.json()) as {
+    responses?: Array<{
+      responses?: Array<{ fullTextAnnotation?: { text?: string }; error?: { message?: string } }>;
+      error?: { message?: string };
+    }>;
+  };
+
+  const fileResp = data.responses?.[0];
+  if (fileResp?.error?.message) throw new Error(fileResp.error.message);
+
+  let text = "";
+  for (const page of fileResp?.responses ?? []) {
+    if (page.error?.message) throw new Error(page.error.message);
+    const t = page.fullTextAnnotation?.text;
+    if (t && t.trim()) text += (text ? "\n\n" : "") + t.trim();
+  }
+  return text;
+}
+
 export async function extractTextFromImage(buffer: Buffer) {
   const apiKey = process.env.GOOGLE_VISION_API_KEY?.trim();
   if (apiKey) return extractTextFromImageViaRest(buffer);
@@ -194,6 +237,15 @@ async function visionWaitOperationViaRest(opts: { apiKey: string; operationName:
 }
 
 export async function extractTextFromPdfScannedViaVision(buffer: Buffer, opts?: { docId?: string }) {
+  const apiKey = process.env.GOOGLE_VISION_API_KEY?.trim();
+  // On Vercel/serverless we must avoid Vision SDK (gRPC) and stream-heavy paths.
+  // Use files:annotate (sync) via REST + API key, and limit pages aggressively.
+  if (apiKey) {
+    const maxPages = getPdfMaxPages();
+    const pages = Array.from({ length: maxPages }, (_, i) => i + 1);
+    return await extractTextFromPdfViaFilesAnnotateRest(buffer, pages);
+  }
+
   const outUri = process.env.GOOGLE_VISION_OCR_GCS_OUTPUT_URI;
   if (!outUri) return "";
 
@@ -210,34 +262,12 @@ export async function extractTextFromPdfScannedViaVision(buffer: Buffer, opts?: 
 
   // On Vercel/serverless, the Vision SDK (gRPC) is prone to "Cannot call write after a stream was destroyed".
   // Prefer the Vision REST API when an API key is available.
-  const apiKey = process.env.GOOGLE_VISION_API_KEY?.trim();
   if (!apiKey && process.env.VERCEL) {
     throw new Error(
       "GOOGLE_VISION_API_KEY is required for PDF OCR on Vercel (to avoid Vision SDK stream errors). Set it in Vercel → Project → Settings → Environment Variables.",
     );
   }
-  if (apiKey) {
-    // IMPORTANT: Avoid uploading the PDF to GCS from serverless (it uses internal PassThrough streams).
-    // Instead, send the PDF bytes directly as base64 to Vision REST.
-    const opName = await visionStartPdfOcrViaRest({
-      apiKey,
-      contentBase64: buffer.toString("base64"),
-      destinationUri: destination,
-      pages,
-    });
-    const timeoutMs = process.env.VERCEL ? 8000 : 30_000;
-    try {
-      await visionWaitOperationViaRest({ apiKey, operationName: opName, timeoutMs });
-    } catch (e) {
-      // If polling timed out, the operation may still finish shortly.
-      // We'll try listing outputs anyway before failing later.
-      console.warn("[vision/pdf] operation not done yet; trying output listing", {
-        docId,
-        opName,
-        error: e instanceof Error ? e.message : String(e),
-      });
-    }
-  } else {
+  {
     const sourceObjectName = `${outPrefix}/input.pdf`;
     const sourceUri = `gs://${bucket}/${sourceObjectName}`;
     // Vision async PDF OCR requires a GCS source when using the SDK (service account). Upload temporarily.
