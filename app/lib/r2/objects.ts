@@ -1,4 +1,4 @@
-import { GetObjectCommand, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { getR2Bucket, getR2Client } from "@/app/lib/r2/client";
 import { Readable } from "stream";
@@ -25,6 +25,20 @@ export async function deleteObject(key: string) {
   const s3 = getR2Client();
   const Bucket = getR2Bucket();
   await s3.send(new DeleteObjectCommand({ Bucket, Key: key }));
+}
+
+/** Returns true if the object exists in R2. */
+export async function objectExists(key: string): Promise<boolean> {
+  const s3 = getR2Client();
+  const Bucket = getR2Bucket();
+  try {
+    await s3.send(new HeadObjectCommand({ Bucket, Key: key }));
+    return true;
+  } catch (e: unknown) {
+    const code = (e as { name?: string })?.name;
+    if (code === "NotFound" || code === "NoSuchKey") return false;
+    throw e;
+  }
 }
 
 export async function getObjectReadUrl(key: string, ttlSeconds = 60 * 10) {

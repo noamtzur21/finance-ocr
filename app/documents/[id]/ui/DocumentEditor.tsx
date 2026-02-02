@@ -39,6 +39,7 @@ export default function DocumentEditor({ doc, categories, defaultBackHref, vatPe
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewFailed, setPreviewFailed] = useState(false);
 
   // Auto-calculate VAT logic
   const updateAmounts = (total: string) => {
@@ -238,7 +239,12 @@ export default function DocumentEditor({ doc, categories, defaultBackHref, vatPe
       {/* Preview Section */}
       <div className="order-1 lg:order-2">
         <div className="sticky top-6 rounded-2xl border border-zinc-200 overflow-hidden bg-zinc-100 shadow-inner min-h-[600px] flex items-center justify-center">
-          {doc.fileMime === "application/pdf" ? (
+          {previewFailed ? (
+            <div className="text-center p-8 text-zinc-500 max-w-sm" dir="rtl">
+              <p className="font-medium">אין תמונה זמינה למסמך זה</p>
+              <p className="text-sm mt-1">ייתכן שהמסמך הועלה לפני מעבר לאחסון הנוכחי.</p>
+            </div>
+          ) : doc.fileMime === "application/pdf" ? (
             <iframe
               src={`/api/documents/${doc.id}/view`}
               className="w-full h-[800px]"
@@ -249,6 +255,7 @@ export default function DocumentEditor({ doc, categories, defaultBackHref, vatPe
               src={`/api/documents/${doc.id}/view`}
               alt="Document Preview"
               className="max-w-full h-auto shadow-2xl"
+              onError={() => setPreviewFailed(true)}
             />
           )}
         </div>
