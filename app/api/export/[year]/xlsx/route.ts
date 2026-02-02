@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 import { requireUser } from "@/app/lib/auth/server";
-import * as XLSX from "xlsx";
+import * as ExcelJS from "exceljs";
+
+function addSheetFromRows(wb: ExcelJS.Workbook, name: string, rows: Record<string, unknown>[]) {
+  if (rows.length === 0) return;
+  const ws = wb.addWorksheet(name, { headerFooter: { firstHeader: "", firstFooter: "" } });
+  const keys = Object.keys(rows[0]!);
+  ws.columns = keys.map((k) => ({ header: k, key: k, width: 14 }));
+  ws.addRows(rows);
+}
 
 export async function GET(req: Request, ctx: { params: Promise<{ year: string }> }) {
   const user = await requireUser();
@@ -33,19 +41,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ year: string }>
     סטטוס: d.ocrStatus,
   }));
 
-  const wb = XLSX.utils.book_new();
-  
+  const wb = new ExcelJS.Workbook();
+
   const receiptRows = rows.filter((r) => r["סוג מסמך"] === "הוצאה (קבלה)");
   const invoiceRows = rows.filter((r) => r["סוג מסמך"] === "הכנסה (חשבונית)");
 
-  if (receiptRows.length) {
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(receiptRows), `קבלות_${y}`);
-  }
-  if (invoiceRows.length) {
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(invoiceRows), `חשבוניות_${y}`);
-  }
+  addSheetFromRows(wb, `קבלות_${y}`, receiptRows);
+  addSheetFromRows(wb, `חשבוניות_${y}`, invoiceRows);
 
-  // Summary Sheet
   const totalExp = receiptRows.reduce((s, r) => s + r["סה״כ (₪)"], 0);
   const totalInc = invoiceRows.reduce((s, r) => s + r["סה״כ (₪)"], 0);
   const totalVatExp = receiptRows.reduce((s, r) => s + r["מע״מ (₪)"], 0);
@@ -59,11 +62,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ year: string }>
     { נושא: "מע״מ תשומות (הוצאות)", ערך: totalVatExp },
     { נושא: "נטו (לפני מס)", ערך: totalInc - totalExp },
   ];
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summary), "סיכום");
+  addSheetFromRows(wb, "סיכום", summary);
 
-  const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
+  const buf = await wb.xlsx.writeBuffer();
 
-  return new NextResponse(new Uint8Array(buf), {
+  return new NextResponse(new Uint8Array(buf as ArrayBuffer), {
     headers: {
       "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "content-disposition": `attachment; filename="finance_report_${y}.xlsx"`,

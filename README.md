@@ -12,6 +12,20 @@ Copy `config/env.example` to `.env` and fill in the values.
 2. Generate client: `npm run db:generate`
 3. Run migrations: `npm run db:migrate`
 
+### Deploy (GitHub + Vercel – project: finance-ocr)
+
+**חיבור חד-פעמי:** הרץ פעם אחת מתוך תיקיית הפרויקט:
+```bash
+npm run link
+```
+בחר את ה-Account ואז **Link to existing project** → **finance-ocr**.
+
+**לאחר כל שינוי – דחיפה ל-GitHub ודיפלוי ל-Vercel:**
+```bash
+npm run ship -- "תיאור השינוי"
+```
+(מחליף את "תיאור השינוי" בהודעת הקומיט. אם אין שינויים, רק ידפלס ל-Vercel.)
+
 ### First user (one-user system)
 
 1. Start dev server: `npm run dev`

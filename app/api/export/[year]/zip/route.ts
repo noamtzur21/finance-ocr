@@ -4,9 +4,17 @@ import { requireUser } from "@/app/lib/auth/server";
 import { getObjectBytes } from "@/app/lib/r2/objects";
 import archiver from "archiver";
 import { Readable } from "stream";
-import * as XLSX from "xlsx";
+import * as ExcelJS from "exceljs";
 
 export const runtime = "nodejs";
+
+function addSheetFromRows(wb: ExcelJS.Workbook, name: string, rows: Record<string, unknown>[]) {
+  if (rows.length === 0) return;
+  const ws = wb.addWorksheet(name, { headerFooter: { firstHeader: "", firstFooter: "" } });
+  const keys = Object.keys(rows[0]!);
+  ws.columns = keys.map((k) => ({ header: k, key: k, width: 14 }));
+  ws.addRows(rows);
+}
 
 export async function GET(req: Request, ctx: { params: Promise<{ year: string }> }) {
   const user = await requireUser();
@@ -38,16 +46,15 @@ export async function GET(req: Request, ctx: { params: Promise<{ year: string }>
     סטטוס: d.ocrStatus,
   }));
 
-  const wb = XLSX.utils.book_new();
+  const wb = new ExcelJS.Workbook();
   const receiptRows = rows.filter((r) => r["סוג מסמך"] === "הוצאה (קבלה)");
   const invoiceRows = rows.filter((r) => r["סוג מסמך"] === "הכנסה (חשבונית)");
 
-  if (receiptRows.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(receiptRows), `קבלות_${y}`);
-  if (invoiceRows.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(invoiceRows), `חשבוניות_${y}`);
+  addSheetFromRows(wb, `קבלות_${y}`, receiptRows);
+  addSheetFromRows(wb, `חשבוניות_${y}`, invoiceRows);
 
-  const xlsxBuf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
+  const xlsxBuf = Buffer.from(await wb.xlsx.writeBuffer());
 
-  // Create ZIP
   const archive = archiver("zip", { zlib: { level: 9 } });
   const stream = new Readable({
     read() {},
@@ -59,16 +66,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ year: string }>
     throw err;
   });
 
-  // Add XLSX to ZIP root
-  archive.append(xlsxBuf, { name: `report_${y}.xlsx" ` });
+  archive.append(xlsxBuf, { name: `report_${y}.xlsx` });
 
-  // Add Files in folders: type/YYYY-MM/
   for (const d of docs) {
     try {
       const bytes = await getObjectBytes(d.fileKey);
       if (!bytes) continue;
 
-      const month = d.date.toISOString().slice(0, 7); // YYYY-MM
+      const month = d.date.toISOString().slice(0, 7);
       const typeDir = d.type === "expense" ? "receipts" : "invoices";
       const path = `${typeDir}/${month}/${d.fileName}`;
 

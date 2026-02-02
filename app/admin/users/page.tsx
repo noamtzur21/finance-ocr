@@ -20,7 +20,7 @@ export default async function AdminUsersPage() {
       <div className="card p-6">
         <CreateUserForm />
       </div>
-      <div className="flex flex-wrap gap-3 text-sm text-zinc-600">
+            <div className="flex flex-wrap gap-3 text-sm text-zinc-600">
         <Link href="/settings" className="font-medium text-zinc-900 underline">
           חזרה להגדרות
         </Link>
