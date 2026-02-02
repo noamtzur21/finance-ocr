@@ -148,7 +148,7 @@ export default function DocumentEditor({ doc, categories, defaultBackHref, vatPe
               value={form.amount}
               onChange={(e) => updateAmounts(e.target.value)}
             />
-            <p className="text-xs text-zinc-500 mt-1">מע&quot;מ ולפני מע&quot;מ מחושבים אוטומטית לפי ההגדרות</p>
+            <p className="text-xs text-zinc-500 mt-1">לפני מע״מ = סה״כ ÷ (1 + אחוז מע״מ/100). אחוז המע״מ בהגדרות (למשל 17% או 18%).</p>
           </div>
 
           <div>
@@ -174,9 +174,16 @@ export default function DocumentEditor({ doc, categories, defaultBackHref, vatPe
           <button
             onClick={save}
             disabled={saving || deleting}
-            className="btn btn-primary w-full py-3 text-base shadow-lg shadow-black/5"
+            className="btn btn-primary w-full py-3 text-base shadow-lg shadow-black/5 inline-flex items-center justify-center gap-2"
           >
-            {saving ? "שומר שינויים..." : "שמור וסיים"}
+            {saving ? (
+              <>
+                <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />
+                שומר...
+              </>
+            ) : (
+              "שמור וסיים"
+            )}
           </button>
         </div>
 

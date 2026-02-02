@@ -136,8 +136,15 @@ export default function ReceiptUploadForm() {
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-      <button disabled={!file || !vendor.trim() || !date || !amount.trim() || loading} className="btn btn-primary disabled:opacity-60" type="submit">
-        {loading ? "מעלה..." : "העלה"}
+      <button disabled={!file || !vendor.trim() || !date || !amount.trim() || loading} className="btn btn-primary disabled:opacity-60 inline-flex items-center justify-center gap-2 min-w-[8rem]" type="submit">
+        {loading ? (
+          <>
+            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />
+            מעלה...
+          </>
+        ) : (
+          "העלה"
+        )}
       </button>
     </form>
   );

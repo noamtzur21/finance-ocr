@@ -25,14 +25,26 @@ export async function GET(req: Request) {
   const stream = new TransformStream();
   const writer = stream.writable.getWriter();
   const encoder = new TextEncoder();
-  const write = async (chunk: string) => writer.write(encoder.encode(chunk));
+  let streamClosed = false;
+  const write = async (chunk: string) => {
+    if (streamClosed) return;
+    try {
+      await writer.write(encoder.encode(chunk));
+    } catch {
+      streamClosed = true;
+    }
+  };
 
   let last = new Date();
-  await write(sse({ ok: true }, "hello"));
+  try {
+    await write(sse({ ok: true }, "hello"));
+  } catch {
+    streamClosed = true;
+  }
 
   const signal = req.signal;
   try {
-    while (!signal.aborted) {
+    while (!signal.aborted && !streamClosed) {
       await write(`: ping\n\n`);
 
       const candidates: Array<{ entity: Entity; id: string; at: Date; extra?: unknown }> = [];
@@ -105,7 +117,7 @@ export async function GET(req: Request) {
       await sleep(full ? 1500 : 4000);
     }
   } catch {
-    // ignore
+    streamClosed = true;
   } finally {
     try {
       await writer.close();

@@ -4,7 +4,32 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ### Environment
 
-Copy `config/env.example` to `.env` and fill in the values.
+רשימת משתני הסביבה שבשימוש (ב־Vercel / `.env`):
+
+| משתנה | שימוש |
+|--------|--------|
+| **DATABASE_URL** | חיבור ל־DB (Prisma). |
+| **DIRECT_URL** | חיבור ישיר ל־DB (מיגרציות). |
+| **AUTH_SECRET** | חתימת sessions / cookies. `openssl rand -base64 32`. |
+| **CREDENTIALS_ENCRYPTION_KEY** | הצפנת אוצר סיסמאות (`/credentials`). `openssl rand -base64 32`. |
+| **R2_ACCOUNT_ID** | Cloudflare R2 – מזהה חשבון. |
+| **R2_ACCESS_KEY_ID** | R2 – מפתח גישה. |
+| **R2_SECRET_ACCESS_KEY** | R2 – סוד גישה. |
+| **R2_BUCKET** | R2 – שם ה־bucket לאחסון קבצים. |
+| **GOOGLE_VISION_API_KEY** | (מומלץ ב־Vercel) מפתח API ל־Vision – OCR לתמונות דרך REST, בלי JWT. |
+| **GOOGLE_CREDENTIALS_JSON** | (אופציונלי) JSON של service account – ל־Vision SDK ו־GCS (PDF OCR). |
+| **GOOGLE_APPLICATION_CREDENTIALS** | (אופציונלי, לוקאלי) נתיב לקובץ JSON של service account. |
+| **GOOGLE_VISION_OCR_GCS_OUTPUT_URI** | URI ב־GCS ל־output של OCR ל־PDF (למשל `gs://bucket/prefix`). |
+| **GOOGLE_VISION_PDF_MAX_PAGES** | מקסימום עמודים לסריקה ב־PDF (ברירת מחדל 5). |
+| **CRON_SECRET** | סוד לאימות קריאות ל־`/api/cron/ocr` (למשל מ־cron-job.org). |
+| **TWILIO_ACCOUNT_SID** | Twilio – ל־webhook נכנס (WhatsApp וכו'). |
+| **TWILIO_AUTH_TOKEN** | Twilio – טוקן אימות. |
+| *WhatsApp בוט עם לוגו והודעות מותאמות:* אפשרי דרך Twilio + Meta WhatsApp Business – הגדרת פרופיל (לוגו, שם עסק) ב־Meta Business Manager, ושימוש ב־Content API / תבניות מאושרות להודעות מותאמות. כרגע ה־webhook רק מקבל מדיה ויוצר מסמכים. |
+| **RESEND_API_KEY** | (אופציונלי) שליחת אימייל "שכחתי סיסמה". |
+| **RESEND_FROM** | (אופציונלי) כתובת השולח באימייל. |
+| **NEXT_PUBLIC_APP_URL** | (אופציונלי) כתובת האתר ללינקים באימייל. |
+
+Copy `config/env.example` to `.env` and fill in the values (if the file exists).
 
 ### Database
 
