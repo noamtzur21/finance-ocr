@@ -81,16 +81,14 @@ function parseQuickTransaction(text: string): { vendor: string; amount: number; 
 
   // Pattern A: "<vendor> סכום <amount> <currency?>"
   const m1 = t.match(
-    /^(?<vendor>.+?)\s+(?:סכום|amount)\s*[:\-]?\s*(?<amount>\d+(?:[.,]\d{1,2})?)\s*(?<cur>₪|ש["״׳']?ח|שקל(?:ים)?|nis|ils|\$|usd|דולר(?:ים)?|€|eur)?\s*$/i,
+    /^(.+?)\s+(?:סכום|amount)\s*[:\-]?\s*(\d+(?:[.,]\d{1,2})?)\s*(₪|ש["״׳']?ח|שקל(?:ים)?|nis|ils|\$|usd|דולר(?:ים)?|€|eur)?\s*$/i,
   );
   // Pattern B: "<vendor> <amount> <currency?>"
-  const m2 = t.match(
-    /^(?<vendor>.+?)\s+(?<amount>\d+(?:[.,]\d{1,2})?)\s*(?<cur>₪|ש["״׳']?ח|שקל(?:ים)?|nis|ils|\$|usd|דולר(?:ים)?|€|eur)?\s*$/i,
-  );
+  const m2 = t.match(/^(.+?)\s+(\d+(?:[.,]\d{1,2})?)\s*(₪|ש["״׳']?ח|שקל(?:ים)?|nis|ils|\$|usd|דולר(?:ים)?|€|eur)?\s*$/i);
   const m = m1 ?? m2;
-  const vendorRaw = (m?.groups?.vendor ?? "").trim();
-  const amountRaw = (m?.groups?.amount ?? "").trim().replace(",", ".");
-  const curRaw = (m?.groups?.cur ?? "").trim().toLowerCase();
+  const vendorRaw = (m?.[1] ?? "").trim();
+  const amountRaw = (m?.[2] ?? "").trim().replace(",", ".");
+  const curRaw = (m?.[3] ?? "").trim().toLowerCase();
   if (!vendorRaw || !amountRaw) return null;
 
   const amount = normalizeAmount(amountRaw);
