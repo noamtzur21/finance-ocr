@@ -126,7 +126,7 @@ export async function POST(req: Request) {
 
   // 1) קודם לפי השולח (From): כשמשתמש שולח קבלה מהמספר שלו, היא נכנסת לחשבון שלו.
   const fromNormalized = normalizePhone(from);
-  let user: { id: string } | null = null;
+  let user: { id: string; approved: boolean } | null = null;
 
   if (fromNormalized) {
     user = await prisma.user.findFirst({
@@ -136,7 +136,7 @@ export async function POST(req: Request) {
           { phoneNumber: `+${fromNormalized}` },
         ],
       },
-      select: { id: true },
+      select: { id: true, approved: true },
     });
   }
 
@@ -145,20 +145,31 @@ export async function POST(req: Request) {
     const toRaw = body.To ?? body.to ?? "";
     const toNormalized = normalizePhone(toRaw);
     if (toNormalized) {
-      user = await prisma.user.findFirst({
+      const matches = await prisma.user.findMany({
         where: {
           OR: [
             { whatsappIncomingNumber: toNormalized },
             { whatsappIncomingNumber: `+${toNormalized}` },
           ],
         },
-        select: { id: true },
+        select: { id: true, approved: true },
       });
+      if (matches.length === 1) user = matches[0]!;
+      if (matches.length > 1) {
+        // Prevent cross-account routing if multiple users configured the same Twilio number.
+        return twimlMessage(
+          "יש כמה חשבונות שמוגדרים עם אותו מספר WhatsApp לקבלת קבלות (Twilio). זה לא בטוח ולכן חסמתי את ההודעה. בקש מהאדמין לוודא שלכל עסק יש מספר Twilio ייחודי בהגדרות.",
+        );
+      }
     }
   }
 
   if (!user) {
     return twimlMessage("לא נמצא חשבון. אם אתה משתמש – הכנס את מספר הטלפון שלך בהגדרות (המספר שממנו אתה שולח). אם אתה לקוח – שלח למספר העסקי שהתקבל ממך.");
+  }
+
+  if (!user.approved) {
+    return twimlMessage("החשבון שלך עדיין ממתין לאישור מנהל המערכת, ולכן WhatsApp עדיין לא פעיל עבורך.");
   }
 
   // If user replied with classification (no media), apply to the latest webhook doc and confirm.
