@@ -1,6 +1,10 @@
 import { prisma } from "@/app/lib/prisma";
 import Link from "next/link";
 
+function monthLabel(d: Date) {
+  return new Intl.DateTimeFormat("he-IL", { month: "long", year: "numeric" }).format(d);
+}
+
 export default async function DashboardContent(props: { userId: string; now: Date }) {
   const start = new Date(props.now.getFullYear(), props.now.getMonth(), 1);
   const end = new Date(props.now.getFullYear(), props.now.getMonth() + 1, 1);
@@ -15,7 +19,6 @@ export default async function DashboardContent(props: { userId: string; now: Dat
       where: { userId: props.userId },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       take: 10,
-      include: { category: { select: { name: true } } },
     }),
     prisma.document.groupBy({
       by: ["type"],
@@ -92,7 +95,6 @@ export default async function DashboardContent(props: { userId: string; now: Dat
               <tr>
                 <th className="px-3 py-2 text-right font-medium">תאריך</th>
                 <th className="px-3 py-2 text-right font-medium">בית עסק</th>
-                <th className="px-3 py-2 text-right font-medium">קטגוריה</th>
                 <th className="px-3 py-2 text-right font-medium">סכום</th>
                 <th className="px-3 py-2 text-right font-medium">כרטיס</th>
               </tr>
@@ -100,25 +102,43 @@ export default async function DashboardContent(props: { userId: string; now: Dat
             <tbody>
               {recentTx.length === 0 ? (
                 <tr>
-                  <td className="px-3 py-10 text-center text-zinc-600" colSpan={5}>
+                  <td className="px-3 py-10 text-center text-zinc-600" colSpan={4}>
                     אין תנועות עדיין. <Link className="underline" href="/transactions">הוסף תנועה</Link>
                   </td>
                 </tr>
               ) : (
-                recentTx.map((t) => (
-                  <tr key={t.id} className="border-t border-zinc-100 hover:bg-zinc-50/60">
-                    <td className="px-3 py-2">{t.date.toISOString().slice(0, 10)}</td>
-                    <td className="px-3 py-2">
-                      <span className="font-medium text-zinc-900">{t.vendor}</span>
-                      {t.description ? <div className="mt-0.5 text-xs text-zinc-600">{t.description}</div> : null}
-                    </td>
-                    <td className="px-3 py-2">{t.category?.name ?? "—"}</td>
-                    <td className="px-3 py-2">
-                      {t.amount.toString()} <span className="text-xs text-zinc-600">{t.currency}</span>
-                    </td>
-                    <td className="px-3 py-2">{t.cardLast4 ? `•••• ${t.cardLast4}` : "—"}</td>
-                  </tr>
-                ))
+                (() => {
+                  const out: React.ReactNode[] = [];
+                  let lastMonth = "";
+                  for (const t of recentTx) {
+                    const m = t.date.toISOString().slice(0, 7);
+                    if (m !== lastMonth) {
+                      lastMonth = m;
+                      const dt = new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1, 1);
+                      out.push(
+                        <tr key={`m-${m}`} className="bg-zinc-50/60">
+                          <td className="px-3 py-2 text-xs font-semibold text-zinc-700" colSpan={4}>
+                            {monthLabel(dt)}
+                          </td>
+                        </tr>,
+                      );
+                    }
+                    out.push(
+                      <tr key={t.id} className="border-t border-zinc-100 hover:bg-zinc-50/60">
+                        <td className="px-3 py-2">{t.date.toISOString().slice(0, 10)}</td>
+                        <td className="px-3 py-2">
+                          <span className="font-medium text-zinc-900">{t.vendor}</span>
+                          {t.description ? <div className="mt-0.5 text-xs text-zinc-600">{t.description}</div> : null}
+                        </td>
+                        <td className="px-3 py-2">
+                          {t.amount.toString()} <span className="text-xs text-zinc-600">{t.currency}</span>
+                        </td>
+                        <td className="px-3 py-2">{t.cardLast4 ? `•••• ${t.cardLast4}` : "—"}</td>
+                      </tr>,
+                    );
+                  }
+                  return out;
+                })()
               )}
             </tbody>
           </table>

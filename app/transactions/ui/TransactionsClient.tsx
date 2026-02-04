@@ -2,6 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+function monthLabelFromKey(key: string) {
+  // key: YYYY-MM
+  const y = Number(key.slice(0, 4));
+  const m = Number(key.slice(5, 7));
+  const dt = new Date(y, Math.max(0, m - 1), 1);
+  return new Intl.DateTimeFormat("he-IL", { month: "long", year: "numeric" }).format(dt);
+}
+
 type Category = { id: string; name: string };
 type Row = {
   id: string;
@@ -38,6 +46,11 @@ export default function TransactionsClient(props: { categories: Category[]; init
     if (!q) return items;
     return items.filter((x) => (x.vendor + " " + (x.description ?? "")).toLowerCase().includes(q));
   }, [items, query]);
+
+  const selectedMonthLabel = useMemo(() => {
+    const mm = String(filterMonth).padStart(2, "0");
+    return monthLabelFromKey(`${filterYear}-${mm}`);
+  }, [filterYear, filterMonth]);
 
   useEffect(() => {
     setItems(props.initial);
@@ -157,6 +170,9 @@ export default function TransactionsClient(props: { categories: Category[]; init
       <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto_auto] lg:items-end">
         <div>
           <label className="text-sm font-medium">חיפוש חופשי</label>
+          <div className="mt-1 text-xs text-zinc-600">
+            מציג לפי חודש: <span className="font-semibold text-zinc-900">{selectedMonthLabel}</span>
+          </div>
           <input
             className="field mt-1"
             value={query}
@@ -220,25 +236,43 @@ export default function TransactionsClient(props: { categories: Category[]; init
                 </td>
               </tr>
             ) : (
-              filtered.map((t) => (
-                <tr key={t.id} className="border-t border-zinc-100 hover:bg-zinc-50/60">
-                  <td className="px-3 py-2">{t.date}</td>
-                  <td className="px-3 py-2">
-                    <div className="font-medium text-zinc-900">{t.vendor}</div>
-                    {t.description ? <div className="mt-0.5 text-xs text-zinc-600">{t.description}</div> : null}
-                  </td>
-                  <td className="px-3 py-2">{t.categoryName ?? "—"}</td>
-                  <td className="px-3 py-2">
-                    {t.amount} <span className="text-xs text-zinc-600">{t.currency}</span>
-                  </td>
-                  <td className="px-3 py-2">{t.cardLast4 ? `•••• ${t.cardLast4}` : "—"}</td>
-                  <td className="px-3 py-2">
-                    <button className="btn" type="button" onClick={() => void remove(t.id)}>
-                      מחק
-                    </button>
-                  </td>
-                </tr>
-              ))
+              (() => {
+                const out: React.ReactNode[] = [];
+                let lastMonth = "";
+                for (const t of filtered) {
+                  const m = t.date.slice(0, 7);
+                  if (m !== lastMonth) {
+                    lastMonth = m;
+                    out.push(
+                      <tr key={`m-${m}`} className="bg-zinc-50/60">
+                        <td className="px-3 py-2 text-xs font-semibold text-zinc-700" colSpan={6}>
+                          {monthLabelFromKey(m)}
+                        </td>
+                      </tr>,
+                    );
+                  }
+                  out.push(
+                    <tr key={t.id} className="border-t border-zinc-100 hover:bg-zinc-50/60">
+                      <td className="px-3 py-2">{t.date}</td>
+                      <td className="px-3 py-2">
+                        <div className="font-medium text-zinc-900">{t.vendor}</div>
+                        {t.description ? <div className="mt-0.5 text-xs text-zinc-600">{t.description}</div> : null}
+                      </td>
+                      <td className="px-3 py-2">{t.categoryName ?? "—"}</td>
+                      <td className="px-3 py-2">
+                        {t.amount} <span className="text-xs text-zinc-600">{t.currency}</span>
+                      </td>
+                      <td className="px-3 py-2">{t.cardLast4 ? `•••• ${t.cardLast4}` : "—"}</td>
+                      <td className="px-3 py-2">
+                        <button className="btn" type="button" onClick={() => void remove(t.id)}>
+                          מחק
+                        </button>
+                      </td>
+                    </tr>,
+                  );
+                }
+                return out;
+              })()
             )}
           </tbody>
         </table>

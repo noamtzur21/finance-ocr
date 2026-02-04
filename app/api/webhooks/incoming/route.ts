@@ -70,6 +70,7 @@ function escapeXml(s: string): string {
 export async function POST(req: Request) {
   const body = await parseIncomingBody(req);
   const from = body.From ?? body.from ?? "";
+  const messageBody = (body.Body ?? body.body ?? "").trim();
   const numMedia = parseInt(body.NumMedia ?? body.NumMedia ?? "0", 10);
   const mediaUrl = body.MediaUrl0 ?? body.MediaUrl0 ?? "";
   const mediaContentType = body.MediaContentType0 ?? body.MediaContentType0 ?? "image/jpeg";
@@ -114,8 +115,37 @@ export async function POST(req: Request) {
     return twimlMessage("לא נמצא חשבון. אם אתה משתמש – הכנס את מספר הטלפון שלך בהגדרות (המספר שממנו אתה שולח). אם אתה לקוח – שלח למספר העסקי שהתקבל ממך.");
   }
 
+  // If user replied with classification (no media), apply to the latest webhook doc and confirm.
   if (numMedia === 0 || !mediaUrl) {
-    return twimlMessage("שלח תמונה של קבלה או חשבונית כדי שאוכל לעבד אותה.");
+    const t = messageBody.toLowerCase();
+    const wantsReceipt = t === "1" || /קבלה|הוצאה|expense|receipt/i.test(messageBody);
+    const wantsInvoice = t === "2" || /חשבונית|הכנסה|income|invoice/i.test(messageBody);
+
+    if (wantsReceipt || wantsInvoice) {
+      const since = new Date(Date.now() - 20 * 60 * 1000);
+      const latest = await prisma.document.findFirst({
+        where: { userId: user.id, createdAt: { gte: since }, fileName: { startsWith: "webhook-" } },
+        orderBy: [{ createdAt: "desc" }],
+        select: { id: true, type: true, createdAt: true },
+      });
+
+      if (!latest) {
+        return twimlMessage("לא מצאתי מסמך אחרון שסיכמת. שלח קודם תמונה/קובץ ואז השב: 1=קבלה, 2=חשבונית.");
+      }
+
+      const newType = wantsInvoice ? "income" : "expense";
+      await prisma.document.update({
+        where: { id: latest.id },
+        data: { type: newType },
+        select: { id: true },
+      });
+
+      return twimlMessage(newType === "income" ? "סבבה—סימנתי כחשבונית (הכנסה)." : "סבבה—סימנתי כקבלה (הוצאה).");
+    }
+
+    return twimlMessage(
+      "שלח תמונה/קובץ של קבלה או חשבונית.\nאחרי השליחה—אענה לך ואפשר להשיב:\n1 = קבלה (הוצאה)\n2 = חשבונית (הכנסה)",
+    );
   }
 
   try {
@@ -130,7 +160,7 @@ export async function POST(req: Request) {
       return twimlMessage("הקבלה הזו כבר נשמרה במערכת.");
     }
 
-    const ext = contentType.includes("png") ? "png" : "jpg";
+    const ext = contentType.includes("pdf") ? "pdf" : contentType.includes("png") ? "png" : "jpg";
     const fileName = `webhook-${Date.now()}.${ext}`;
     const fileKey = `${user.id}/${Date.now()}-${fileName}`;
     await putObject({ key: fileKey, body: new Uint8Array(buffer), contentType });
@@ -155,7 +185,9 @@ export async function POST(req: Request) {
     await enqueueOcrJob({ userId: user.id, docId: doc.id });
 
     console.log("[webhooks/incoming] Doc created docId=%s userId=%s", doc.id, user.id);
-    return twimlMessage("הקבלה התקבלה ותעובד בקרוב. תוכל לראות אותה באפליקציה.");
+    return twimlMessage(
+      "קיבלתי את המסמך והוא ייסרק ב‑OCR.\nמה זה?\n1 = קבלה (הוצאה)\n2 = חשבונית (הכנסה)\n\n(אפשר גם לשנות אחר כך בתוך האפליקציה)",
+    );
   } catch (e) {
     const err = e instanceof Error ? e.message : String(e);
     console.error("[webhooks/incoming]", err);
