@@ -67,6 +67,52 @@ function escapeXml(s: string): string {
     .replace(/'/g, "&apos;");
 }
 
+function normalizeAmount(raw: string): number | null {
+  const s = raw.trim().replace(/\s/g, "").replace(/,/g, "");
+  if (!/^\d+(\.\d{1,2})?$/.test(s)) return null;
+  const n = Number(s);
+  if (!Number.isFinite(n) || n <= 0 || n > 1_000_000) return null;
+  return n;
+}
+
+function parseQuickTransaction(text: string): { vendor: string; amount: number; currency: "ILS" | "USD" | "EUR" } | null {
+  const t = text.trim();
+  if (!t) return null;
+
+  // Pattern A: "<vendor> סכום <amount> <currency?>"
+  const m1 = t.match(
+    /^(?<vendor>.+?)\s+(?:סכום|amount)\s*[:\-]?\s*(?<amount>\d+(?:[.,]\d{1,2})?)\s*(?<cur>₪|ש["״׳']?ח|שקל(?:ים)?|nis|ils|\$|usd|דולר(?:ים)?|€|eur)?\s*$/i,
+  );
+  // Pattern B: "<vendor> <amount> <currency?>"
+  const m2 = t.match(
+    /^(?<vendor>.+?)\s+(?<amount>\d+(?:[.,]\d{1,2})?)\s*(?<cur>₪|ש["״׳']?ח|שקל(?:ים)?|nis|ils|\$|usd|דולר(?:ים)?|€|eur)?\s*$/i,
+  );
+  const m = m1 ?? m2;
+  const vendorRaw = (m?.groups?.vendor ?? "").trim();
+  const amountRaw = (m?.groups?.amount ?? "").trim().replace(",", ".");
+  const curRaw = (m?.groups?.cur ?? "").trim().toLowerCase();
+  if (!vendorRaw || !amountRaw) return null;
+
+  const amount = normalizeAmount(amountRaw);
+  if (amount === null) return null;
+
+  let currency: "ILS" | "USD" | "EUR" = "ILS";
+  if (curRaw.includes("$") || curRaw.includes("usd") || curRaw.includes("דולר")) currency = "USD";
+  if (curRaw.includes("€") || curRaw.includes("eur")) currency = "EUR";
+  if (curRaw.includes("₪") || curRaw.includes("שח") || curRaw.includes("ש\"ח") || curRaw.includes("שקל") || curRaw.includes("nis") || curRaw.includes("ils"))
+    currency = "ILS";
+
+  // If no explicit currency but message is mostly English, assume USD.
+  if (!curRaw) {
+    const hasHebrew = /[\u0590-\u05FF]/.test(t);
+    const hasLatin = /[a-z]/i.test(t);
+    if (!hasHebrew && hasLatin) currency = "USD";
+  }
+
+  const vendor = vendorRaw.slice(0, 120);
+  return { vendor, amount, currency };
+}
+
 export async function POST(req: Request) {
   const body = await parseIncomingBody(req);
   const from = body.From ?? body.from ?? "";
@@ -143,8 +189,42 @@ export async function POST(req: Request) {
       return twimlMessage(newType === "income" ? "סבבה—סימנתי כחשבונית (הכנסה)." : "סבבה—סימנתי כקבלה (הוצאה).");
     }
 
+    // Quick transaction (text-only): "משקה חלבון סכום 12 שקלים"
+    const tx = parseQuickTransaction(messageBody);
+    if (tx) {
+      // Ensure we have a default category so it looks tidy in "תנועות".
+      const defaultCategoryName = "כללי";
+      const category =
+        (await prisma.category.findFirst({
+          where: { userId: user.id, name: defaultCategoryName },
+          select: { id: true },
+        })) ??
+        (await prisma.category.create({
+          data: { userId: user.id, name: defaultCategoryName },
+          select: { id: true },
+        }));
+
+      const created = await prisma.transaction.create({
+        data: {
+          userId: user.id,
+          date: new Date(),
+          amount: tx.amount.toFixed(2),
+          currency: tx.currency,
+          vendor: tx.vendor,
+          description: null,
+          categoryId: category.id,
+          cardLast4: null,
+        },
+        select: { id: true },
+      });
+
+      return twimlMessage(
+        `אין בעיה 🙂 הוספתי לתנועות: ${tx.vendor} — ${tx.amount.toFixed(2)} ${tx.currency === "ILS" ? "₪" : tx.currency === "USD" ? "$" : "€"} (היום).\nמזהה: ${created.id.slice(0, 8)}`,
+      );
+    }
+
     return twimlMessage(
-      "שלח תמונה/קובץ של קבלה או חשבונית.\nאחרי השליחה—אענה לך ואפשר להשיב:\n1 = קבלה (הוצאה)\n2 = חשבונית (הכנסה)",
+      "אפשר:\n1) לשלוח תמונה/קובץ של קבלה או חשבונית (ואז לענות 1/2)\n2) להוסיף תנועה מהירה בטקסט:\nלדוגמה: משקה חלבון סכום 12 שקלים\nאו: משקה חלבון 12 ₪",
     );
   }
 
