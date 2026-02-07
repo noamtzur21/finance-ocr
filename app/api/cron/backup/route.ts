@@ -10,6 +10,7 @@ import { putObject } from "@/app/lib/r2/objects";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+export const dynamic = "force-dynamic";
 
 function unauthorized() {
   return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401, headers: { "Content-Type": "application/json" } });
