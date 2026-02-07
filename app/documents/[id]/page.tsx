@@ -34,17 +34,29 @@ export default async function DocumentPage(props: {
     from === "receipts" || doc.type === "expense"
       ? "/receipts"
       : from === "invoices" || doc.type === "income"
-      ? "/invoices"
-      : "/dashboard";
+        ? "/invoices"
+        : from === "payment-receipts" || doc.type === "payment_receipt"
+          ? "/payment-receipts"
+          : "/dashboard";
 
   const backLabel =
-    backHref === "/receipts" ? "חזרה לקבלות" : backHref === "/invoices" ? "חזרה לחשבוניות" : "חזרה לדשבורד";
+    backHref === "/receipts"
+      ? "חזרה לקבלות החזר מס"
+      : backHref === "/invoices"
+        ? "חזרה לחשבוניות"
+        : backHref === "/payment-receipts"
+          ? "חזרה לקבלות על תשלום"
+          : "חזרה לדשבורד";
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
-          {doc.type === "expense" ? "קבלה" : "חשבונית"}
+          {doc.type === "expense"
+            ? "קבלת החזר מס"
+            : doc.type === "payment_receipt"
+              ? "קבלה על תשלום"
+              : "חשבונית"}
         </h1>
         <a className="btn" href={backHref}>
           {backLabel}

@@ -7,12 +7,13 @@ import crypto from "crypto";
 import { enqueueOcrJob } from "@/app/lib/ocr/worker";
 
 const metaSchema = z.object({
-  type: z.enum(["expense", "income"]),
+  type: z.enum(["expense", "income", "payment_receipt"]),
   date: z.string().optional(),
   vendor: z.string().optional(),
   amount: z.string().optional(),
   categoryId: z.string().optional(),
   description: z.string().nullable().optional(),
+  docNumber: z.string().nullable().optional(),
 });
 
 type Meta = z.infer<typeof metaSchema>;
@@ -68,6 +69,7 @@ export async function POST(req: Request) {
       vendor: meta.vendor || "Unknown",
       categoryId: meta.categoryId || null,
       description: meta.description || null,
+      docNumber: meta.docNumber ?? null,
       fileKey,
       fileName: file.name,
       fileMime: file.type,

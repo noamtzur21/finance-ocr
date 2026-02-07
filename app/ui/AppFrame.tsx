@@ -48,11 +48,21 @@ const nav: NavItem[] = [
   },
   {
     href: "/receipts",
-    label: "קבלות",
+    label: "קבלות החזר מס",
     icon: ({ className }) => (
       <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M12 16V4m0 0 4 4m-4-4-4 4" />
         <path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" />
+      </svg>
+    ),
+  },
+  {
+    href: "/payment-receipts",
+    label: "קבלות על תשלום",
+    icon: ({ className }) => (
+      <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M9 12l2 2 4-4" />
+        <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
       </svg>
     ),
   },
@@ -128,6 +138,7 @@ export default function AppFrame(props: { children: React.ReactNode }) {
       const from = new URLSearchParams(spKey).get("from");
       if (from === "receipts") return "/receipts";
       if (from === "invoices") return "/invoices";
+      if (from === "payment-receipts") return "/payment-receipts";
     }
     return "/dashboard";
   }, [pathname, spKey]);

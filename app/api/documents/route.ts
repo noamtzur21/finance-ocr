@@ -5,7 +5,7 @@ import { requireUser } from "@/app/lib/auth/server";
 
 const querySchema = z.object({
   q: z.string().optional(),
-  type: z.enum(["expense", "income"]).optional(),
+  type: z.enum(["expense", "income", "payment_receipt"]).optional(),
   categoryId: z.string().optional(),
   from: z.string().optional(), // YYYY-MM-DD
   to: z.string().optional(), // YYYY-MM-DD (inclusive)

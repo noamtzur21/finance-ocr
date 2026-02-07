@@ -28,7 +28,12 @@ export async function GET(req: Request, ctx: { params: Promise<{ year: string }>
 
   const rows = docs.map((d) => ({
     תאריך: d.date.toISOString().slice(0, 10),
-    "סוג מסמך": d.type === "expense" ? "הוצאה (קבלה)" : "הכנסה (חשבונית)",
+    "סוג מסמך":
+      d.type === "expense"
+        ? "הוצאה (קבלת החזר מס)"
+        : d.type === "payment_receipt"
+          ? "קבלה על תשלום"
+          : "הכנסה (חשבונית)",
     "בית עסק / לקוח": d.vendor,
     "מספר מסמך": d.docNumber ?? "",
     קטגוריה: d.category?.name ?? "",
@@ -43,23 +48,27 @@ export async function GET(req: Request, ctx: { params: Promise<{ year: string }>
 
   const wb = new ExcelJS.Workbook();
 
-  const receiptRows = rows.filter((r) => r["סוג מסמך"] === "הוצאה (קבלה)");
+  const receiptRows = rows.filter((r) => r["סוג מסמך"] === "הוצאה (קבלת החזר מס)");
   const invoiceRows = rows.filter((r) => r["סוג מסמך"] === "הכנסה (חשבונית)");
+  const paymentReceiptRows = rows.filter((r) => r["סוג מסמך"] === "קבלה על תשלום");
 
-  addSheetFromRows(wb, `קבלות_${y}`, receiptRows);
+  addSheetFromRows(wb, `קבלות_החזר_מס_${y}`, receiptRows);
   addSheetFromRows(wb, `חשבוניות_${y}`, invoiceRows);
+  addSheetFromRows(wb, `קבלות_על_תשלום_${y}`, paymentReceiptRows);
 
   const totalExp = receiptRows.reduce((s, r) => s + r["סה״כ (₪)"], 0);
   const totalInc = invoiceRows.reduce((s, r) => s + r["סה״כ (₪)"], 0);
+  const totalPaymentReceipts = paymentReceiptRows.reduce((s, r) => s + r["סה״כ (₪)"], 0);
   const totalVatExp = receiptRows.reduce((s, r) => s + r["מע״מ (₪)"], 0);
   const totalVatInc = invoiceRows.reduce((s, r) => s + r["מע״מ (₪)"], 0);
 
   const summary = [
     { נושא: "סיכום שנתי", ערך: y },
-    { נושא: "סה״כ הכנסות", ערך: totalInc },
+    { נושא: "סה״כ הכנסות (חשבוניות)", ערך: totalInc },
     { נושא: "מע״מ עסקאות (הכנסות)", ערך: totalVatInc },
-    { נושא: "סה״כ הוצאות", ערך: totalExp },
+    { נושא: "סה״כ הוצאות (קבלות החזר מס)", ערך: totalExp },
     { נושא: "מע״מ תשומות (הוצאות)", ערך: totalVatExp },
+    { נושא: "סה״כ קבלות על תשלום", ערך: totalPaymentReceipts },
     { נושא: "נטו (לפני מס)", ערך: totalInc - totalExp },
   ];
   addSheetFromRows(wb, "סיכום", summary);

@@ -10,12 +10,12 @@ export default async function ReceiptUploadPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">קבלה חדשה</h1>
-          <p className="mt-1 text-sm text-zinc-600">העלה קבלה (תמונה/‏PDF) והשלם פרטים בסיסיים.</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">קבלת החזר מס חדשה</h1>
+          <p className="mt-1 text-sm text-zinc-600">העלה קבלה על הוצאה (תמונה/‏PDF) לצורך החזר מס והשלם פרטים.</p>
         </div>
         <div className="flex items-center gap-2">
           <a className="btn" href="/receipts">
-            חזרה לקבלות
+            חזרה לקבלות החזר מס
           </a>
           <a className="btn" href="/dashboard">
             דשבורד

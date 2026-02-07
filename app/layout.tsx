@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import AppFrame from "@/app/ui/AppFrame";
+import OfflineBanner from "@/app/ui/OfflineBanner";
 import { Suspense } from "react";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -33,16 +34,10 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const vercelEnv = process.env.VERCEL_ENV;
-  const isNonProd = vercelEnv && vercelEnv !== "production";
   return (
     <html lang="he" dir="rtl">
       <body className={inter.className}>
-        {isNonProd ? (
-          <div className="w-full bg-amber-100 text-amber-900 border-b border-amber-200 px-4 py-2 text-xs">
-            אתה נמצא בסביבת בדיקה ({vercelEnv}). ייתכן שתראה נתונים שונים מ-Production אם ה-DB שונה.
-          </div>
-        ) : null}
+        <OfflineBanner />
         <Suspense fallback={<div />}>
           <AppFrame>{children}</AppFrame>
         </Suspense>

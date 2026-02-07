@@ -12,8 +12,9 @@ datasource db {
 }
 
 enum DocumentType {
-  expense
-  income
+  expense       // קבלות החזר מס – קבלות שהוצאתי על הוצאות (להחזר מס)
+  income       // חשבוניות – חשבוניות שהוצאתי ללקוחות
+  payment_receipt  // קבלות על תשלום – קבלות שהוצאתי ללקוחות (הוכחת תשלום)
 }
 
 enum OcrStatus {

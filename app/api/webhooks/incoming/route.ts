@@ -173,10 +173,10 @@ export async function POST(req: Request) {
   // If user replied with classification (no media), apply to the latest webhook doc and confirm.
   if (numMedia === 0 || !mediaUrl) {
     const t = messageBody.toLowerCase();
-    const wantsReceipt = t === "1" || /קבלה|הוצאה|expense|receipt/i.test(messageBody);
+    const wantsPaymentReceipt = t === "1" || /קבלה על תשלום|קבלה.*תשלום|^קבלה$|payment.?receipt/i.test(messageBody);
     const wantsInvoice = t === "2" || /חשבונית|הכנסה|income|invoice/i.test(messageBody);
 
-    if (wantsReceipt || wantsInvoice) {
+    if (wantsPaymentReceipt || wantsInvoice) {
       const since = new Date(Date.now() - 20 * 60 * 1000);
       const latest = await prisma.document.findFirst({
         where: { userId: user.id, createdAt: { gte: since }, fileName: { startsWith: "webhook-" } },
@@ -185,17 +185,17 @@ export async function POST(req: Request) {
       });
 
       if (!latest) {
-        return twimlMessage("לא מצאתי מסמך אחרון שסיכמת. שלח קודם תמונה/קובץ ואז השב: 1=קבלה, 2=חשבונית.");
+        return twimlMessage("לא מצאתי מסמך אחרון שסיכמת. שלח קודם תמונה/קובץ ואז השב: 1=קבלה על תשלום, 2=חשבונית.");
       }
 
-      const newType = wantsInvoice ? "income" : "expense";
+      const newType = wantsInvoice ? "income" : "payment_receipt";
       await prisma.document.update({
         where: { id: latest.id },
         data: { type: newType },
         select: { id: true },
       });
 
-      return twimlMessage(newType === "income" ? "סבבה—סימנתי כחשבונית (הכנסה)." : "סבבה—סימנתי כקבלה (הוצאה).");
+      return twimlMessage(newType === "income" ? "סבבה—סימנתי כחשבונית." : "סבבה—סימנתי כקבלה על תשלום.");
     }
 
     // Quick transaction (text-only): "משקה חלבון סכום 12 שקלים"
@@ -233,7 +233,7 @@ export async function POST(req: Request) {
     }
 
     return twimlMessage(
-      "אפשר:\n1) לשלוח תמונה/קובץ של קבלה או חשבונית (ואז לענות 1/2)\n2) להוסיף תנועה מהירה בטקסט:\nלדוגמה: משקה חלבון סכום 12 שקלים\nאו: משקה חלבון 12 ₪",
+      "אפשר:\n1) לשלוח תמונה/קובץ של קבלה על תשלום או חשבונית (ואז לענות 1/2)\n2) להוסיף תנועה מהירה בטקסט:\nלדוגמה: משקה חלבון סכום 12 שקלים\nאו: משקה חלבון 12 ₪",
     );
   }
 
@@ -275,7 +275,7 @@ export async function POST(req: Request) {
 
     console.log("[webhooks/incoming] Doc created docId=%s userId=%s", doc.id, user.id);
     return twimlMessage(
-      "קיבלתי את המסמך והוא ייסרק ב‑OCR.\nמה זה?\n1 = קבלה (הוצאה)\n2 = חשבונית (הכנסה)\n\n(אפשר גם לשנות אחר כך בתוך האפליקציה)",
+      "קיבלתי את המסמך והוא ייסרק ב‑OCR.\nמה זה?\n1 = קבלה על תשלום\n2 = חשבונית\n\n(אפשר גם לשנות אחר כך בתוך האפליקציה)",
     );
   } catch (e) {
     const err = e instanceof Error ? e.message : String(e);

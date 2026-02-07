@@ -33,7 +33,12 @@ export async function GET(req: Request, ctx: { params: Promise<{ year: string }>
 
   const rows = docs.map((d) => ({
     תאריך: d.date.toISOString().slice(0, 10),
-    "סוג מסמך": d.type === "expense" ? "הוצאה (קבלה)" : "הכנסה (חשבונית)",
+    "סוג מסמך":
+      d.type === "expense"
+        ? "הוצאה (קבלת החזר מס)"
+        : d.type === "payment_receipt"
+          ? "קבלה על תשלום"
+          : "הכנסה (חשבונית)",
     "בית עסק / לקוח": d.vendor,
     "מספר מסמך": d.docNumber ?? "",
     קטגוריה: d.category?.name ?? "",
@@ -47,11 +52,13 @@ export async function GET(req: Request, ctx: { params: Promise<{ year: string }>
   }));
 
   const wb = new ExcelJS.Workbook();
-  const receiptRows = rows.filter((r) => r["סוג מסמך"] === "הוצאה (קבלה)");
+  const receiptRows = rows.filter((r) => r["סוג מסמך"] === "הוצאה (קבלת החזר מס)");
   const invoiceRows = rows.filter((r) => r["סוג מסמך"] === "הכנסה (חשבונית)");
+  const paymentReceiptRows = rows.filter((r) => r["סוג מסמך"] === "קבלה על תשלום");
 
-  addSheetFromRows(wb, `קבלות_${y}`, receiptRows);
+  addSheetFromRows(wb, `קבלות_החזר_מס_${y}`, receiptRows);
   addSheetFromRows(wb, `חשבוניות_${y}`, invoiceRows);
+  addSheetFromRows(wb, `קבלות_על_תשלום_${y}`, paymentReceiptRows);
 
   const xlsxBuf = Buffer.from(await wb.xlsx.writeBuffer());
 
@@ -74,7 +81,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ year: string }>
       if (!bytes) continue;
 
       const month = d.date.toISOString().slice(0, 7);
-      const typeDir = d.type === "expense" ? "receipts" : "invoices";
+      const typeDir =
+        d.type === "expense" ? "receipts" : d.type === "payment_receipt" ? "payment-receipts" : "invoices";
       const path = `${typeDir}/${month}/${d.fileName}`;
 
       archive.append(Buffer.from(bytes), { name: path });

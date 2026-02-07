@@ -3,12 +3,11 @@ import { requireUser } from "@/app/lib/auth/server";
 import LiveRefresh from "@/app/ui/LiveRefresh";
 import Link from "next/link";
 import { Suspense } from "react";
-import ReceiptsTable from "./ui/ReceiptsTable";
+import PaymentReceiptsTable from "./ui/PaymentReceiptsTable";
 
-// Always fetch fresh data so new WhatsApp receipts appear without stale cache
 export const dynamic = "force-dynamic";
 
-export default async function ReceiptsPage(props: { searchParams?: Promise<{ all?: string }> }) {
+export default async function PaymentReceiptsPage(props: { searchParams?: Promise<{ all?: string }> }) {
   const user = await requireUser();
   if (!user) redirect("/login");
 
@@ -20,14 +19,14 @@ export default async function ReceiptsPage(props: { searchParams?: Promise<{ all
       <LiveRefresh />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">קבלות החזר מס</h1>
-          <p className="mt-1 text-sm text-zinc-600">קבלות על הוצאות לצורך החזר מס. העמוד נטען בהדרגה — הטבלה תופיע מיד כשמוכן.</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">קבלות על תשלום</h1>
+          <p className="mt-1 text-sm text-zinc-600">קבלות שהוצאת ללקוחות לאחר ששילמו. העמוד נטען בהדרגה — הטבלה תופיע מיד כשמוכן.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Link className="btn btn-primary" href="/receipts/upload">
-            קבלת החזר מס חדשה
+          <Link className="btn btn-primary" href="/payment-receipts/upload">
+            קבלה על תשלום חדשה
           </Link>
-          <Link className="btn" href={showAll ? "/receipts" : "/receipts?all=1"}>
+          <Link className="btn" href={showAll ? "/payment-receipts" : "/payment-receipts?all=1"}>
             {showAll ? "הצג החודש" : "הצג הכל"}
           </Link>
           <Link className="btn" href="/dashboard">
@@ -44,9 +43,8 @@ export default async function ReceiptsPage(props: { searchParams?: Promise<{ all
           </div>
         }
       >
-        <ReceiptsTable userId={user.id} showAll={showAll} />
+        <PaymentReceiptsTable userId={user.id} showAll={showAll} />
       </Suspense>
     </div>
   );
 }
-
